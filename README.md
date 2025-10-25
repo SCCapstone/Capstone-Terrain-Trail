@@ -76,3 +76,8 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 
 
 # Authors 
+Kyle Hix
+Madeleine McBride
+Gavin Orme
+Meetkumar Patel
+Donovan Williams 

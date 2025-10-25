@@ -1,0 +1,24 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f9fafc;
+}
+
+.app-header {
+  background-color: #73000a; /* USC garnet color */
+  color: white;
+  text-align: center;
+  padding: 1rem;
+}
+
+.main {
+  padding: 20px;
+  justify-content: center;
+  
+}
+
+div {
+  justify-content: center;
+}
+
+
