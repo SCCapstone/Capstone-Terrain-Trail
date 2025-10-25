@@ -86,3 +86,4 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 ## Meetkumar Patel
 
 ## Donovan Williams 
+Email: dw58@email.sc.edu

@@ -5,10 +5,10 @@ body {
 }
 
 .app-header {
-  background-color: #73000a; /* USC garnet color */
+  background-color: #73000a; 
   color: white;
   text-align: center;
-  padding: 1rem;
+  
 }
 
 .main {
