@@ -1,5 +1,10 @@
 # Terrain Trail 
 
+Our web app lets users plot and rate campus routes for walking, biking, or driving. Routes are rated by terrain and accessibility, helping users find the most efficient path for their chosen mode of transportation on the campus of the University of South Carolina. 
+
+Project description wiki: https://github.com/SCCapstone/Capstone-Terrain-Trail/wiki/Project-Description
+Project design wiki: https://github.com/SCCapstone/Capstone-Terrain-Trail/wiki/Design
+
 ## External Requirements 
 
 In order to build this project you will need to run commands: 
