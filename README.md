@@ -90,6 +90,7 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 Email: Gorme@email.sc.edu
 
 ## Meetkumar Patel
+Email: mmp16@email.sc.edu
 
 ## Donovan Williams 
 Email: dw58@email.sc.edu
