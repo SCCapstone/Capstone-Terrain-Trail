@@ -85,6 +85,7 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 ## Kyle Hix
 
 ## Madeleine McBride
+Email: MM249@email.sc.edu
 
 ## Gavin Orme
 Email: Gorme@email.sc.edu
