@@ -1,5 +1,5 @@
 /**
- * Root React component for the "Cola Trails" application. Testing for merge conflicts.
+ * Root React component for the "Cola Trails" application.
  *
  * Renders the main application layout including:
  * - a header with the application title ("Cola Trails") and a short description,
