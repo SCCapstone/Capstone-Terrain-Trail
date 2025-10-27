@@ -6,6 +6,7 @@ function App() {
     <div className="app-root">
       <header className="app-header">
         <h1>Cola Trails</h1>
+        <p>Explore and rate walking, biking, and driving routes across USC</p>
       </header>
       <main style={{
         paddingLeft: "20%"
