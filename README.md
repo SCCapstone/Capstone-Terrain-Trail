@@ -95,3 +95,45 @@ Email: mmp16@email.sc.edu
 
 ## Donovan Williams 
 Email: dw58@email.sc.edu
+
+
+
+# New way to run  it
+
+git fetch origin
+git checkout Meetkumar-p
+git pull
+
+
+Now you should see this structure:
+Capstone-Terrain-Trail/
+├── client/     # React app
+└── server/     # Express + MongoDB
+
+Go into the server folder and install deps:
+
+cd server
+npm install
+
+We don’t commit the real .env, so do this:
+cp .env.example .env
+
+Then open server/.env and fill in the real MongoDB password that was shared:
+
+MONGODB_URI=mongodb+srv://colatrails:<password>@cluster0.ipndphq.mongodb.net/colatrails?retryWrites=true&w=majority&appName=Cluster0
+PORT=4000
+JWT_SECRET=anyrandomstring
+
+
+npm start
+
+You should see:
+DB connected
+API running on http://localhost:4000
+
+Open a new terminal (keep the server running) and do:
+
+cd client
+npm install
+npm start
+
