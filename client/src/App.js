@@ -1,21 +1,28 @@
+// src/App.js
 import React from "react";
-import "./App.css";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { NavLink } from "react-router-dom";
+
+import Layout from "./components/Layout";
+import CreateTrail from "./pages/CreateTrail";
+import Explore from "./pages/Explore";
+import Settings from "./pages/Settings";
+import Library from "./pages/Library";
 
 function App() {
   return (
-    <div className="app-root">
-      <header className="app-header">
-        <h1>Cola Trails</h1>
-        <p>Explore and rate walking, biking, and driving trails across USC</p>
-      </header>
-      <main style={{
-        paddingLeft: "20%"
-      }}>
-      </main>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route path="create" element={<CreateTrail />} />
+          <Route path="explore" element={<Explore />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="library" element={<Library />} />
+        </Route>
+      </Routes>
+    </Router>
   );
 }
-
 
 export default App;
 
