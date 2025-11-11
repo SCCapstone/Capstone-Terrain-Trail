@@ -5,12 +5,20 @@ import horseshoe from "./horseshoe_now.jpg";
 export default function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState("");
   const navigate = useNavigate();
+
+  const garnet = "#73000a";
+  const passwordsMatch = password.length > 0 && password === confirm;
 
   async function handleSubmit(e) {
     e.preventDefault();
     setMsg("");
+    if (!passwordsMatch) {
+      setMsg("Passwords do not match");
+      return;
+    }
     const res = await fetch("http://localhost:4000/api/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -20,8 +28,6 @@ export default function SignUp() {
     if (res.ok) navigate("/login");
     else setMsg(data.message || "Error");
   }
-
-  const garnet = "#73000a";
 
   return (
     <div
@@ -132,19 +138,43 @@ export default function SignUp() {
                 outline: "none",
               }}
             />
+            <input
+              type="password"
+              placeholder="Retype Password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+              aria-invalid={confirm.length > 0 && !passwordsMatch}
+              style={{
+                padding: "12px 14px",
+                border: `1px solid ${
+                  confirm.length > 0 && !passwordsMatch ? "#c62828" : "#ddd"
+                }`,
+                borderRadius: 4,
+                fontSize: 16,
+                outline: "none",
+              }}
+            />
+
+            {!passwordsMatch && confirm.length > 0 && (
+              <div style={{ color: "#b00020", fontSize: 14 }}>
+                Passwords do not match
+              </div>
+            )}
 
             <div style={{ display: "flex", gap: 12, marginTop: 6 }}>
               <button
                 type="submit"
+                disabled={!passwordsMatch}
                 style={{
                   flex: 1,
                   padding: "12px 14px",
-                  background: garnet,
+                  background: passwordsMatch ? garnet : "#bbb",
                   color: "#fff",
                   border: "none",
                   borderRadius: 4,
                   fontSize: 16,
-                  cursor: "pointer",
+                  cursor: passwordsMatch ? "pointer" : "not-allowed",
                 }}
               >
                 Sign Up
@@ -167,9 +197,7 @@ export default function SignUp() {
               </button>
             </div>
 
-            {msg && (
-              <div style={{ color: "#b00020", fontSize: 14 }}>{msg}</div>
-            )}
+            {msg && <div style={{ color: "#b00020", fontSize: 14 }}>{msg}</div>}
           </form>
         </div>
       </main>
