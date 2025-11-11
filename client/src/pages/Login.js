@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import horseshoe from "./horseshoe_now.jpg";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -20,31 +21,156 @@ export default function Login() {
       localStorage.setItem("token", data.token || "");
       navigate("/app/explore");
     } else {
-      setMsg(data.message || "Invalid credentials");
+      setMsg(data.message || "Invalid email or password");
     }
   }
 
+  const garnet = "#73000a";
+
   return (
-    <form onSubmit={handleSubmit} style={{ padding: "2rem", maxWidth: 420 }}>
-      <h2>Log in</h2>
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        style={{ width: "100%", padding: 8, marginBottom: 10 }}
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        style={{ width: "100%", padding: 8, marginBottom: 10 }}
-      />
-      <button type="submit">Log In</button>
-      {msg && <p>{msg}</p>}
-    </form>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        background: "#f9fafc",
+      }}
+    >
+      <header
+        style={{
+          background: "#fff",
+          padding: "24px 40px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-start",
+          borderBottom: "1px solid #eee",
+        }}
+      >
+        <h1
+          style={{
+            margin: 0,
+            color: garnet,
+            letterSpacing: "2px",
+            fontSize: 48,
+            fontWeight: 700,
+          }}
+        >
+          LOG IN
+        </h1>
+      </header>
+
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          gap: 48,
+          alignItems: "flex-start",
+          justifyContent: "center",
+          padding: "40px",
+        }}
+      >
+        <div style={{ maxWidth: 760, width: "60%", marginTop: "10px" }}>
+          <img
+            src={horseshoe}
+            alt="USC Horseshoe"
+            style={{
+              width: "100%",
+              height: "auto",
+              objectFit: "cover",
+              borderRadius: 6,
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            width: "32%",
+            background: "#fff",
+            borderRadius: 8,
+            boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+            padding: 24,
+            marginTop: "30px",
+          }}
+        >
+          <h2
+            style={{
+              marginTop: 0,
+              marginBottom: 16,
+              color: "#111",
+              fontSize: 28,
+              fontWeight: 600,
+            }}
+          >
+            Login
+          </h2>
+
+          <form
+            onSubmit={handleSubmit}
+            style={{ display: "flex", flexDirection: "column", gap: 12 }}
+          >
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{
+                padding: "12px 14px",
+                border: "1px solid #ddd",
+                borderRadius: 4,
+                fontSize: 16,
+                outline: "none",
+              }}
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              style={{
+                padding: "12px 14px",
+                border: "1px solid #ddd",
+                borderRadius: 4,
+                fontSize: 16,
+                outline: "none",
+              }}
+            />
+
+            <button
+              type="submit"
+              style={{
+                marginTop: 8,
+                padding: "12px 14px",
+                background: garnet,
+                color: "#fff",
+                border: "none",
+                borderRadius: 4,
+                fontSize: 16,
+                cursor: "pointer",
+              }}
+            >
+              Log In
+            </button>
+
+            {msg && (
+              <div style={{ color: "#b00020", fontSize: 14 }}>{msg}</div>
+            )}
+          </form>
+        </div>
+      </main>
+
+      <footer
+        style={{
+          background: garnet,
+          color: "#fff",
+          textAlign: "center",
+          padding: "14px 0",
+          fontWeight: 600,
+        }}
+      >
+        Cola Trails
+      </footer>
+    </div>
   );
 }
