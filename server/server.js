@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cors from "cors";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 dotenv.config();
 
@@ -43,6 +44,24 @@ app.post("/api/signup", async (req, res) => {
     res.status(201).json({ message: "User created" });
   } catch (err) {
     if (err?.code === 11000) return res.status(409).json({ message: "Email already in use" });
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post("/api/login", async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ message: "Email and password required" });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(401).json({ message: "Invalid email or password" });
+
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) return res.status(401).json({ message: "Invalid email or password" });
+
+    const token = jwt.sign({ sub: user._id, email: user.email }, process.env.JWT_SECRET || "dev", { expiresIn: "7d" });
+    res.json({ message: "Logged in", token });
+  } catch {
     res.status(500).json({ message: "Server error" });
   }
 });

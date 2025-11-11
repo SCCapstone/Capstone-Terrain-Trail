@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-export default function SignUp() {
+export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
@@ -10,39 +10,30 @@ export default function SignUp() {
   async function handleSubmit(e) {
     e.preventDefault();
     setMsg("");
-    const res = await fetch("http://localhost:4000/api/signup", {
+    const res = await fetch("http://localhost:4000/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
     const data = await res.json();
     if (res.ok) {
-      navigate("/login");
+      localStorage.setItem("token", data.token || "");
+      navigate("/app/explore");
     } else {
-      setMsg(data.message || "Error");
+      setMsg(data.message || "Invalid credentials");
     }
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      style={{
-        padding: "2rem",
-        maxWidth: 420,
-        display: "flex",
-        flexDirection: "column",
-        gap: "10px",
-      }}
-    >
-      <h2>Create account</h2>
-
+    <form onSubmit={handleSubmit} style={{ padding: "2rem", maxWidth: 420 }}>
+      <h2>Log in</h2>
       <input
         type="email"
         placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
-        style={{ padding: 8 }}
+        style={{ width: "100%", padding: 8, marginBottom: 10 }}
       />
       <input
         type="password"
@@ -50,22 +41,9 @@ export default function SignUp() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         required
-        style={{ padding: 8 }}
+        style={{ width: "100%", padding: 8, marginBottom: 10 }}
       />
-
-      <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
-        <button type="submit" style={{ flex: 1 }}>
-          Sign Up
-        </button>
-        <button
-          type="button"
-          style={{ flex: 1 }}
-          onClick={() => navigate("/login")}
-        >
-          Log In
-        </button>
-      </div>
-
+      <button type="submit">Log In</button>
       {msg && <p>{msg}</p>}
     </form>
   );
