@@ -8,11 +8,11 @@ const containerStyle = {
   boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
 };
 
-const CENTER = { lat: 33.996112, lng: -81.027428 }; // Example: University of South Carolina
+const CENTER = { lat: 33.996112, lng: -81.027428 }; //University of South Carolina
 
 function Explore() {
   const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY, // your API key in .env file
+    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY, 
   });
 
   if (!isLoaded) return <div>Loading map...</div>;
