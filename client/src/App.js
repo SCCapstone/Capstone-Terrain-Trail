@@ -1,6 +1,5 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { NavLink } from "react-router-dom";
 
 import Layout from "./components/Layout";
 import CreateTrail from "./pages/CreateTrail";
@@ -14,14 +13,24 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Public auth pages */}
         <Route path="/" element={<SignUp />} />
         <Route path="/login" element={<Login />} />
+
+        {/* Main app shell under /app */}
         <Route path="/app" element={<Layout />}>
+          {/* default page when you visit /app */}
+          <Route index element={<Explore />} />
+
+          {/* sidebar pages */}
           <Route path="create" element={<CreateTrail />} />
           <Route path="explore" element={<Explore />} />
-          <Route path="settings" element={<Settings />} />
           <Route path="library" element={<Library />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
+
+        {/*404 */}
+        <Route path="*" element={<div>Page not found</div>} />
       </Routes>
     </Router>
   );

@@ -1,85 +1,107 @@
 
+/* src/components/Layout.css */
+
 body {
   margin: 0;
   font-family: Arial, sans-serif;
   background: #f9fafc;
   color: #222;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
 }
 
+/* Overall layout: sidebar + main area */
+.app-root {
+  display: flex;
+  min-height: 100vh;
+}
 
+/* LEFT SIDEBAR */
+.sidebar {
+  width: 70px;
+  background: #73000a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem 0;
+  gap: 0.75rem;
+}
+
+/* Icon buttons */
+.side-link {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  background: #73000a;
+  border: 1px solid #ffffff55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.side-link .icon {
+  font-size: 22px;
+  color: #fff;
+}
+
+.side-link:hover {
+  background: #8b0010;
+}
+
+.side-link.active {
+  background: #ffffff;
+}
+
+.side-link.active .icon {
+  color: #73000a;
+}
+
+/* For screen readers (keeps text accessible but visually hidden) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* RIGHT SIDE CONTAINER */
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top header bar */
 .app-header {
-  background-color: #73000a; 
+  background-color: #73000a;
   color: white;
   text-align: center;
-  padding: 3rem 0; 
+  padding: 2.5rem 0;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  flex-shrink: 0; 
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 3rem;
+  font-size: 2.6rem;
   letter-spacing: 1px;
 }
 
 .app-header p {
   margin-top: 0.75rem;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   color: #f2f2f2;
 }
 
-
-.app-root {
-  display: flex;
-  flex-direction: row;
-  height: 100%;
-}
-
-
-.main-nav {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  background-color: #f7f7f7;
-  border-right: 1px solid #ddd;
-  width: 200px;
-  padding: 1.5rem 1rem;
-  gap: 1rem;
-  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.05);
-  flex-shrink: 0;
-}
-
-.main-nav .nav-link {
-  text-decoration: none;
-  color: #333;
-  font-weight: 500;
-  font-size: 1.1rem;
-  padding: 8px 12px;
-  border-radius: 4px;
-  width: 100%;
-  transition: all 0.2s ease;
-}
-
-.main-nav .nav-link:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.main-nav .nav-link.active {
-  background-color: #73000a;
-  color: #fff;
-  font-weight: 600;
-}
-
-/* ========= Main Content ========= */
-main {
-  flex-grow: 1;
-  padding: 2rem;
+/* Where each page renders */
+.main-content {
+  flex: 1;
+  padding: 2rem 3rem;
   overflow-y: auto;
+  background: #f9fafc;
 }
 
-div {
-  justify-content: center;
-}
