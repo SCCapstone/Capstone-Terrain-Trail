@@ -17,7 +17,7 @@ export default function CreateTrail() {
   // load the Maps JS API and the places library for autocomplete
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
-    libraries: ["places"],
+    libraries: ["places", "maps"],
   });
 
   const mapRef = useRef(null);
@@ -113,7 +113,7 @@ export default function CreateTrail() {
     setMapCenter(target);
   }
 
-  if (loadError) return <div style={{ padding: 16 }}>Error loading Google Maps API</div>;
+  // if (loadError) return <div style={{ padding: 16 }}>Error loading Google Maps API</div>;
   if (!isLoaded) return <div style={{ padding: 16 }}>Loading map...</div>;
 
   return (
