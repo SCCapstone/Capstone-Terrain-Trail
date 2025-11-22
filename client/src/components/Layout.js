@@ -36,7 +36,7 @@ const Layout = () => {
             isActive ? "side-link active" : "side-link"
           }
         >
-          <span className="icon" aria-hidden="true">📚</span>
+          <span className="icon" aria-hidden="true">📖</span>
           <span className="sr-only">Library</span>
         </NavLink>
 
