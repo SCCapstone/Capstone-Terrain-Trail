@@ -6,6 +6,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
@@ -122,20 +123,38 @@ export default function Login() {
                 outline: "none",
               }}
             />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              style={{
-                padding: "12px 14px",
-                border: "1px solid #ddd",
-                borderRadius: 4,
-                fontSize: 16,
-                outline: "none",
-              }}
-            />
+            <div style={{ display: "flex", gap: 8}}>
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={{
+                  flex: 1,
+                  padding: "12px 14px",
+                  border: "1px solid #ddd",
+                  borderRadius: 4,
+                  fontSize: 16,
+                  outline: "none",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                style={{
+                  padding: "0 12px",
+                  borderRadius: 4,
+                  border: "1px solid #ddd",
+                  background: "#f5f5f5",
+                  fontSize: 12,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
 
             <button
               type="submit"
