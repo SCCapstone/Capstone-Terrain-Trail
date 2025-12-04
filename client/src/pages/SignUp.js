@@ -24,7 +24,7 @@ export default function SignUp() {
       setMsg("Passwords do not match");
       return;
     }
-    const res = await fetch(`${API_BASE}/api/login`, {
+    const res = await fetch(`${API_BASE}/api/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, username, email, password }),
