@@ -36,7 +36,7 @@ function Settings() {
         return;
       }
       try {
-        const res = await fetch(`${API_BASE}/api/settings`, {
+        const res = await fetch(`${API_BASE}/api/account`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
