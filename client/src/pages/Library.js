@@ -172,13 +172,7 @@ export default function Library() {
             </button>
           </div>
 
-          {/* Distance/Duration display */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
-              <div style={{ fontSize: 14 }}><strong>Distance:</strong> {distanceText || "—"}</div>
-              <div style={{ fontSize: 14 }}><strong>Duration:</strong> {durationText || "—"}</div>
-            </div>
-          </div>
+         
 
           {/* Map */}
           <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", boxShadow: "0 6px 20px rgba(0,0,0,0.06)" }}>
@@ -234,7 +228,7 @@ export default function Library() {
           </div>
         </div>
 
-        {/* RIGHT: saved routes list (scrollable) */}
+   
         <aside style={{ width: 360, maxHeight: 720, overflowY: "auto", borderRadius: 12, boxShadow: "0 6px 20px rgba(0,0,0,0.06)", padding: 12, background: "#fff" }}>
           <h3 style={{ marginTop: 0 }}>Saved Routes ({filteredRoutes.length})</h3>
 
@@ -266,14 +260,12 @@ export default function Library() {
 
                   <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
                     <button
-                      onClick={(e) => { e.stopPropagation(); loadSavedRoute(route); }}
                       style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #888", background: "#fff", cursor: "pointer" }}
                     >
                       {loadingRouteId === route.id ? "Loading..." : "Load"}
                     </button>
 
                     <button
-                      onClick={(e) => { e.stopPropagation(); deleteSavedRoute(route.id); }}
                       style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #e0b0b0", background: "#fff", color: "#b00", cursor: "pointer" }}
                     >
                       Delete
