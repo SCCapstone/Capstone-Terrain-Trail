@@ -21,6 +21,7 @@ function Settings() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:4000";
 
   // fetching current user data
   useEffect(() => {
@@ -35,7 +36,7 @@ function Settings() {
         return;
       }
       try {
-        const res = await fetch("http://localhost:4000/api/account", {
+        const res = await fetch(`${API_BASE}/api/login`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",

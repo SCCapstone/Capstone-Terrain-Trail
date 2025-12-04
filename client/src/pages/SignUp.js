@@ -12,6 +12,7 @@ export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+  const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:4000";
 
   const garnet = "#73000a";
   const passwordsMatch = password.length > 0 && password === confirm;
@@ -23,7 +24,7 @@ export default function SignUp() {
       setMsg("Passwords do not match");
       return;
     }
-    const res = await fetch("http://localhost:4000/api/signup", {
+    const res = await fetch(`${API_BASE}/api/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, username, email, password }),
