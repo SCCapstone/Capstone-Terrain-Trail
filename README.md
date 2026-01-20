@@ -84,7 +84,7 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/t
 cd client
 npm install (if package-lock.json is not present)
 npm test
-
+click "a" if needed
 
 # Authors 
 
