@@ -1,4 +1,3 @@
-// client/src/pages/Library.js
 import React, { useEffect, useRef, useState } from "react";
 import { GoogleMap, useJsApiLoader, DirectionsRenderer } from "@react-google-maps/api";
 
@@ -9,21 +8,24 @@ const containerStyle = {
   boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
 };
 
-const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 }; 
+const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
+
+function travelModeFromType(type) {
+  if (type === "🚲") return "BICYCLING";
+  if (type === "🚗") return "DRIVING";
+  return "WALKING";
+}
 
 export default function Library() {
-  // load the Maps JS API and the places library for autocomplete
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
-    libraries: ["places", "maps"], 
+    libraries: ["places", "maps"],
   });
 
-  // map refs/state
   const mapRef = useRef(null);
   const [map, setMap] = useState(null);
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
 
-  // directions + meta
   const [directionsResult, setDirectionsResult] = useState(null);
   const [distanceText, setDistanceText] = useState("");
   const [durationText, setDurationText] = useState("");
@@ -50,26 +52,20 @@ export default function Library() {
     },
   ]);
 
-  // search query for appearance only (no functionality)
   const [query, setQuery] = useState("");
 
-  // filteredRoutes no longer uses query → always show all saved routes
   const filteredRoutes = savedRoutes;
 
-  // which route is selected / loading state
   const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [loadingRouteId, setLoadingRouteId] = useState(null);
 
-  // map load/unload
   useEffect(() => {
     return () => {
-      // cleanup on unmount
       mapRef.current = null;
       setMap(null);
     };
   }, []);
 
-  // helper to pan map
   function panToTarget(target, zoom = 14) {
     if (!mapRef.current) return;
     mapRef.current.panTo(target);
@@ -79,14 +75,102 @@ export default function Library() {
     setMapCenter(target);
   }
 
-  // recenter button
   function recenterToOrigin() {
     const target = originPosition || DEFAULT_CENTER;
     panToTarget(target, 14);
   }
 
+  async function geocodeAddress(address) {
+    return new Promise((resolve, reject) => {
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ address }, (results, status) => {
+        if (status === "OK" && results && results[0]) {
+          const loc = results[0].geometry.location;
+          resolve({ lat: loc.lat(), lng: loc.lng() });
+        } else {
+          reject(new Error(`Geocode failed: ${status}`));
+        }
+      });
+    });
+  }
+
+  async function loadSavedRoute(route) {
+    if (!isLoaded || !window.google?.maps) return;
+
+    setLoadingRouteId(route.id);
+    setSelectedRouteId(route.id);
+
+    try {
+      const originLatLng = await geocodeAddress(route.origin);
+      setOriginPosition(originLatLng);
+
+      const service = new window.google.maps.DirectionsService();
+      const travelMode = travelModeFromType(route.type);
+
+      const result = await new Promise((resolve, reject) => {
+        service.route(
+          {
+            origin: route.origin,
+            destination: route.destination,
+            travelMode: window.google.maps.TravelMode[travelMode],
+            provideRouteAlternatives: false,
+          },
+          (res, status) => {
+            if (status === "OK" && res) resolve(res);
+            else reject(new Error(`Directions failed: ${status}`));
+          }
+        );
+      });
+
+      setDirectionsResult(result);
+
+      const leg = result?.routes?.[0]?.legs?.[0];
+      const dist = leg?.distance?.text || route.distance || "";
+      const dur = leg?.duration?.text || route.duration || "";
+      setDistanceText(dist);
+      setDurationText(dur);
+
+      setSavedRoutes((prev) =>
+        prev.map((r) =>
+          r.id === route.id ? { ...r, distance: dist || r.distance, duration: dur || r.duration } : r
+        )
+      );
+
+      if (mapRef.current && result?.routes?.[0]?.bounds) {
+        mapRef.current.fitBounds(result.routes[0].bounds);
+      } else {
+        panToTarget(originLatLng, 14);
+      }
+    } catch (err) {
+      console.error(err);
+      setDirectionsResult(null);
+      setDistanceText("");
+      setDurationText("");
+    } finally {
+      setLoadingRouteId(null);
+    }
+  }
+
+  function deleteSavedRoute(routeId) {
+    setSavedRoutes((prev) => prev.filter((r) => r.id !== routeId));
+
+    if (routeId === selectedRouteId) {
+      setSelectedRouteId(null);
+      setLoadingRouteId(null);
+      setDirectionsResult(null);
+      setDistanceText("");
+      setDurationText("");
+      setOriginPosition(null);
+      setMapCenter(DEFAULT_CENTER);
+    }
+  }
+
   if (loadError)
-    return <div style={{ padding: 16 }}>Error loading Google Maps API — check console for more details.</div>;
+    return (
+      <div style={{ padding: 16 }}>
+        Error loading Google Maps API — check console for more details.
+      </div>
+    );
   if (!isLoaded) return <div style={{ padding: 16 }}>Loading map...</div>;
 
   return (
@@ -94,17 +178,16 @@ export default function Library() {
       <h2 style={{ marginBottom: 12 }}>Library</h2>
 
       <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-        {/* LEFT: map column */}
         <div style={{ flex: "1 1 0", minWidth: 600 }}>
           <div style={{ marginBottom: 12, display: "flex", gap: 8, alignItems: "center" }}>
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)} 
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="Search saved routes by title, origin, or destination"
               style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid #ccc" }}
             />
             <button
-              onClick={() => setQuery("")} 
+              onClick={() => setQuery("")}
               style={{
                 padding: "8px 12px",
                 borderRadius: 8,
@@ -117,7 +200,6 @@ export default function Library() {
             </button>
           </div>
 
-          {/* Map */}
           <div
             style={{
               position: "relative",
@@ -148,7 +230,6 @@ export default function Library() {
               {directionsResult && <DirectionsRenderer directions={directionsResult} />}
             </GoogleMap>
 
-            {/* Recenter button */}
             <button
               onClick={recenterToOrigin}
               aria-label="Recenter to origin"
@@ -169,12 +250,41 @@ export default function Library() {
                 gap: 8,
               }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                fill="currentColor"
+                viewBox="0 0 16 16"
+                aria-hidden
+              >
                 <path d="M8 3a5 5 0 1 0 0 10A5 5 0 0 0 8 3zM1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8z" />
                 <path d="M8 5.5a.5.5 0 0 1 .5.5v2.25l1.5.875a.5.5 0 0 1-.5.866L8 8V6a.5.5 0 0 1 .5-.5z" />
               </svg>
               <span style={{ fontSize: 13, fontWeight: 600 }}>Recenter</span>
             </button>
+
+            {(distanceText || durationText) && (
+              <div
+                style={{
+                  position: "absolute",
+                  right: 16,
+                  bottom: 16,
+                  zIndex: 1000,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "rgba(255,255,255,0.95)",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                  fontSize: 13,
+                  color: "#222",
+                  maxWidth: 220,
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>Route</div>
+                {distanceText && <div>Distance: {distanceText}</div>}
+                {durationText && <div>ETA: {durationText}</div>}
+              </div>
+            )}
           </div>
         </div>
 
@@ -199,6 +309,7 @@ export default function Library() {
               return (
                 <li
                   key={route.id}
+                  onClick={() => setSelectedRouteId(route.id)}
                   style={{
                     padding: 12,
                     borderRadius: 8,
@@ -213,7 +324,10 @@ export default function Library() {
                     <div style={{ fontWeight: 700 }}>
                       {route.title} {route.type}
                     </div>
-                    <div style={{ fontSize: 12, color: "#666" }}>{route.distance || ""}</div>
+                    <div style={{ fontSize: 12, color: "#666" }}>
+                      {route.distance || ""}
+                      {route.duration ? ` • ${route.duration}` : ""}
+                    </div>
                   </div>
 
                   <div style={{ fontSize: 13, color: "#444", marginTop: 6 }}>
@@ -222,19 +336,28 @@ export default function Library() {
 
                   <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
                     <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        loadSavedRoute(route);
+                      }}
+                      disabled={loadingRouteId === route.id}
                       style={{
                         padding: "6px 8px",
                         borderRadius: 6,
                         border: "1px solid #888",
                         background: "#fff",
-                        cursor: "pointer",
+                        cursor: loadingRouteId === route.id ? "not-allowed" : "pointer",
+                        opacity: loadingRouteId === route.id ? 0.7 : 1,
                       }}
                     >
                       {loadingRouteId === route.id ? "Loading..." : "Load"}
                     </button>
 
                     <button
-              
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteSavedRoute(route.id);
+                      }}
                       style={{
                         padding: "6px 8px",
                         borderRadius: 6,
