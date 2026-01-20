@@ -79,6 +79,12 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
 
+# Unit Testing Instructions (Jest)
+(CreateTrail.test.js located in client/src/pages)
+cd client
+npm install (if package-lock.json is not present)
+npm test
+
 
 # Authors 
 
@@ -136,4 +142,6 @@ Open a new terminal (keep the server running) and do:
 cd client
 npm install
 npm start
+
+
 
