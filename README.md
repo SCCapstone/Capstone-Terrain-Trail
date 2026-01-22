@@ -159,6 +159,5 @@ Open another window of terminal:
 cd client
 npx cypress run
 
-
-
-npm start
+If is there is a error you might need to install cypress with this command in the client: 
+npm install -D cypress
