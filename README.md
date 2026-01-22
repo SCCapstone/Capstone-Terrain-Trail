@@ -142,6 +142,3 @@ Open a new terminal (keep the server running) and do:
 cd client
 npm install
 npm start
-
-
-
