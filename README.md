@@ -145,3 +145,19 @@ npm start
 
 
 
+Testing for the setting page:
+
+cd server
+npm start
+
+Open another window of terminal:
+
+cd client
+npm start
+
+Open another window of terminal:
+cd client
+npx cypress run
+
+
+
