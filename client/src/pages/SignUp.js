@@ -9,7 +9,10 @@ export default function SignUp() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+  const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:4000";
 
   const garnet = "#73000a";
   const passwordsMatch = password.length > 0 && password === confirm;
@@ -21,7 +24,7 @@ export default function SignUp() {
       setMsg("Passwords do not match");
       return;
     }
-    const res = await fetch("http://localhost:4000/api/signup", {
+    const res = await fetch(`${API_BASE}/api/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, username, email, password }),
@@ -70,29 +73,74 @@ export default function SignUp() {
               required
               style={{ padding: "12px 14px", border: "1px solid #ddd", borderRadius: 4, fontSize: 16, outline: "none" }}
             />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              style={{ padding: "12px 14px", border: "1px solid #ddd", borderRadius: 4, fontSize: 16, outline: "none" }}
-            />
-            <input
-              type="password"
-              placeholder="Retype Password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              required
-              aria-invalid={confirm.length > 0 && !passwordsMatch}
-              style={{
-                padding: "12px 14px",
-                border: `1px solid ${confirm.length > 0 && !passwordsMatch ? "#c62828" : "#ddd"}`,
-                borderRadius: 4,
-                fontSize: 16,
-                outline: "none",
-              }}
-            />
+            <div style={{ display: "flex", gap: 8}}>
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={{
+                  flex: 1,
+                  padding: "12px 14px",
+                  border: "1px solid #ddd",
+                  borderRadius: 4,
+                  fontSize: 16,
+                  outline: "none",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                style={{
+                  padding: "0 12px",
+                  borderRadius: 4,
+                  border: "1px solid #ddd",
+                  background: "#f5f5f5",
+                  fontSize: 12,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                placeholder="Retype Password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                required
+                aria-invalid={confirm.length > 0 && !passwordsMatch}
+                style={{
+                  flex: 1,
+                  padding: "12px 14px",
+                  border: `1px solid ${
+                    confirm.length > 0 && !passwordsMatch ? "#c62828" : "#ddd"
+                  }`,
+                  borderRadius: 4,
+                  fontSize: 16,
+                  outline: "none",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((s) => !s)}
+                style={{
+                  padding: "0 12px",
+                  borderRadius: 4,
+                  border: "1px solid #ddd",
+                  background: "#f5f5f5",
+                  fontSize: 12,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {showConfirmPassword ? "Hide" : "Show"}
+              </button>
+            </div>
             {!passwordsMatch && confirm.length > 0 && (
               <div style={{ color: "#b00020", fontSize: 14 }}>Passwords do not match</div>
             )}

@@ -64,17 +64,16 @@ app.post("/api/signup", async (req, res) => {
     if (!email || !password) return res.status(400).json({ message: "Email and password required" });
     if (password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
 
-    const existing = await User.findOne({ email });
-    if (existing) return res.status(409).json({ message: "Email already in use" });
-
-    const existingEmail = await User.findOne({ email });
-    if (existingEmail) return res.status(409).json({ message: "Email already in use" });
     if (username) {
       const existingUser = await User.findOne({ username });
       if (existingUser) return res.status(409).json({message: "Username already in use"});
     }
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
+      return res.status(409).json({ message: "Email already in use" });
+    }
     const passwordHash = await bcrypt.hash(password, 10);
-    await User.create({ email, passwordHash });
+    await User.create({ name, username, email, passwordHash });
 
     res.status(201).json({ message: "User created" });
   } catch (err) {
@@ -134,31 +133,39 @@ app.put("/api/account", requireAuth, async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Update name/email if provided
-    if (typeof name === "string") user.name = name.trim();
-    if (typeof email === "string") user.email = email.trim().toLowerCase();
+    const trimmedEmail = typeof email === "string" ? email.trim().toLowerCase() : undefined;
+    const isEmailChanging = typeof trimmedEmail === "string" && trimmedEmail !== user.email;
+    const isPasswordChanging = !!newPassword;
 
-    // Handle password change 
-    if (newPassword || currentPassword) {
-      if (!currentPassword) {
-        return res
-          .status(400)
-          .json({ message: "Current password is required to change password" });
-      }
+    if ((isEmailChanging || isPasswordChanging) && !currentPassword) {
+      return res.status(400).json({
+        message: "Current password is required to change email or password",
+      });
+    }
 
-      const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (isEmailChanging || isPasswordChanging) {
+      const ok = await bcrypt.compare(currentPassword || "", user.passwordHash);
       if (!ok) {
         return res.status(400).json({ message: "Incorrect current password" });
       }
+    }
 
-      if (!newPassword || newPassword.length < 6) {
+    if (typeof name === "string") {
+      user.name = name.trim();
+    }
+
+    if (isEmailChanging) {
+      user.email = trimmedEmail;
+    }
+
+    if (newPassword) {
+      if (newPassword.length < 6) {
         return res.status(400).json({
           message: "New password must be at least 6 characters",
         });
       }
       user.passwordHash = await bcrypt.hash(newPassword, 10);
     }
-
     await user.save();
 
     res.json({

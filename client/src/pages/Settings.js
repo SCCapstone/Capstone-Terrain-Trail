@@ -5,8 +5,8 @@ function Settings() {
   const garnet = "#73000a";
 
   const [form, setForm] = useState({
-    name: "",
-    email: "",
+    newName: "",
+    newEmail: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
@@ -18,6 +18,10 @@ function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState({ type: "", message: ""});
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:4000";
 
   // fetching current user data
   useEffect(() => {
@@ -32,7 +36,7 @@ function Settings() {
         return;
       }
       try {
-        const res = await fetch("http://localhost:4000/api/account", {
+        const res = await fetch(`${API_BASE}/api/account`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -49,16 +53,16 @@ function Settings() {
         const user = data.user || data;
         const name = user.name || "";
         const email = user.email || "";
+        const baseOriginal = { name, email };
 
-        const base = {
-          name,
-          email,
+        setOriginal(baseOriginal);
+        setForm({
+          newName: "",
+          newEmail: "",
           currentPassword: "",
           newPassword: "",
           confirmPassword: "",
-        };
-        setForm(base);
-        setOriginal(base);
+        });
         setStatus({ type: "", message: "" });
       } 
       catch (err) {
@@ -86,8 +90,17 @@ function Settings() {
 
     if (!original) return;
 
-    // simple password validation 
-    if (form.newPassword || form.confirmPassword || form.currentPassword) {
+    const trimmedNewName = form.newName.trim();
+    const trimmedNewEmail = form.newEmail.trim().toLowerCase();
+
+    const nameToSend = trimmedNewName || original.name;
+    const emailToSend = trimmedNewEmail || original.email;
+
+    const isEmailChanging = trimmedNewEmail && trimmedNewEmail != original.email.toLowerCase();
+    const isPasswordChanging = form.newPassword || form.confirmPassword || form.currentPassword;
+
+    // password change validation (requires current + confirmation)
+    if (isPasswordChanging) {
       if (!form.currentPassword) {
         setStatus({
           type: "error",
@@ -95,6 +108,22 @@ function Settings() {
         });
         return;
       }
+      if (form.newPassword !== form.confirmPassword) {
+        setStatus({
+          type: "error",
+          message: "New password and confirmation do not match."
+        });
+        return;
+      }
+    }
+
+    // email change requires current password
+    if (isEmailChanging && !form.currentPassword) {
+      setStatus({
+        type: "error",
+        message: "Please enter your current password to change your email."
+      });
+      return;
     }
 
     const token = localStorage.getItem("token");
@@ -108,47 +137,51 @@ function Settings() {
 
     setSaving(true);
     try {
-      const res = await fetch("http://localhost:4000/api/account", {
-        method: "PUT", // or "PATCH" if needed
+      const res = await fetch("http://localhost:4000/api/account",  {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          name: form.name,
-          email: form.email,
+          name: nameToSend,
+          email: emailToSend,
           currentPassword: form.currentPassword || undefined,
           newPassword: form.newPassword || undefined,
         }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        // backend should send messages like "Incorrect current password"
-        throw new Error(data.message || "Unable to save changes.");
-      }
-
-      // on success, reset password fields and update original snapshot
-      const updatedBase = {
-        name: form.name,
-        email: form.email,
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      };
-
-      setForm(updatedBase);
-      setOriginal(updatedBase);
-
-      setStatus({
-        type: "success",
-        message: "Changes saved.",
-      });
+    const data = await res.json()
+    if (!res.ok) {
+      throw new Error(data.message || "Unable to save changes.");
     }
+
+    const updatedBase = {
+      name: nameToSend,
+      email: emailToSend
+    };
+
+    setOriginal(updatedBase);
+
+    setForm({
+      newName: "",
+      newEmail: "",
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    });
+
+    setStatus({
+      type: "success",
+      message: "Changes saved.",
+    });
+
+    }
+
     catch (err) {
       setStatus({ type: "error", message: err.message});
     }
+
     finally {
       setSaving(false);
     }
@@ -158,7 +191,8 @@ function Settings() {
   function handleCancel() {
     if (!original) return;
     setForm({
-      ...original,
+      newName: "",
+      newEmail: "",
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
@@ -182,7 +216,6 @@ function Settings() {
         background: "#f9fafc",
       }}
     >
-      {/* Top bar / page title (Point 2) */}
       <header
         style={{
           background: "#fff",
@@ -205,7 +238,6 @@ function Settings() {
           SETTINGS
         </h1>
 
-        {/* simple “gear” circle to echo the mock – purely visual */}
         <div
           aria-hidden="true"
           style={{
@@ -232,7 +264,6 @@ function Settings() {
         </div>
       </header>
 
-      {/* Main content */}
       <main
         style={{
           flex: 1,
@@ -251,7 +282,6 @@ function Settings() {
             overflow: "hidden",
           }}
         >
-          {/* Big maroon strip (Point 3 area header) */}
           <div
             style={{
               background: garnet,
@@ -264,7 +294,6 @@ function Settings() {
             Account Settings
           </div>
 
-          {/* Settings content area (Point 3) */}
           <div
             style={{
               display: "flex",
@@ -272,7 +301,6 @@ function Settings() {
               gap: 32,
             }}
           >
-            {/* Left: categories list (purely visual for now) */}
             <aside
               style={{
                 minWidth: 220,
@@ -306,7 +334,6 @@ function Settings() {
               </ul>
             </aside>
 
-            {/* Right: editable form */}
             <section style={{ flex: 1 }}>
               {loading ? (
                 <p style={{ marginTop: 8 }}>Loading account data…</p>
@@ -315,7 +342,6 @@ function Settings() {
                   onSubmit={handleSave}
                   style={{ display: "flex", flexDirection: "column", gap: 16 }}
                 >
-                  {/* Issue #80: success / error messages */}
                   {status.message && (
                     <div
                       style={{
@@ -353,64 +379,116 @@ function Settings() {
                       gap: 20,
                     }}
                   >
-                    {/* Full Name */}
                     <div>
                       <label
-                        htmlFor="name"
                         style={{ display: "block", fontSize: 14, color: "#555" }}
                       >
-                        Full Name
+                        Current Full Name
+                      </label>
+                      <div
+                        style={{
+                          marginTop: 4,
+                          padding: "10px 12px",
+                          borderRadius: 4,
+                          border: "1px solid #ddd",
+                          background: "#f9fafb",
+                          fontSize: 15,
+                        }}
+                      >
+                        {original?.name || "—"}
+                      </div>
+
+                      <label
+                        htmlFor="newName"
+                        style={{
+                          display: "block",
+                          fontSize: 13,
+                          color: "#777",
+                          marginTop: 10,
+                        }}
+                      >
+                        New Full Name (optional)
                       </label>
                       <input
-                        id="name"
-                        name="name"
+                        id="newName"
+                        name="newName"
                         type="text"
-                        value={form.name}
+                        value={form.newName}
                         onChange={handleChange}
-                        required
+                        placeholder="Enter a new name"
                         style={{
                           width: "100%",
                           marginTop: 4,
                           padding: "10px 12px",
                           borderRadius: 4,
-                          border: "1px solid #ddd",
+                          border: "1px solid #bbb",
                           fontSize: 15,
                           outline: "none",
                         }}
                       />
                     </div>
 
-                    {/* Email */}
                     <div>
                       <label
-                        htmlFor="email"
                         style={{ display: "block", fontSize: 14, color: "#555" }}
                       >
-                        Email
+                        Current Email
+                      </label>
+                      <div
+                        style={{
+                          marginTop: 4,
+                          padding: "10px 12px",
+                          borderRadius: 4,
+                          border: "1px solid #ddd",
+                          background: "#f9fafb",
+                          fontSize: 15,
+                        }}
+                      >
+                        {original?.email || "—"}
+                      </div>
+
+                      <label
+                        htmlFor="newEmail"
+                        style={{
+                          display: "block",
+                          fontSize: 13,
+                          color: "#777",
+                          marginTop: 10,
+                        }}
+                      >
+                        New Email (optional)
                       </label>
                       <input
-                        id="email"
-                        name="email"
+                        id="newEmail"
+                        name="newEmail"
                         type="email"
-                        value={form.email}
+                        value={form.newEmail}
                         onChange={handleChange}
-                        required
+                        placeholder="Enter a new email"
                         style={{
                           width: "100%",
                           marginTop: 4,
                           padding: "10px 12px",
                           borderRadius: 4,
-                          border: "1px solid #ddd",
+                          border: "1px solid #bbb",
                           fontSize: 15,
                           outline: "none",
                         }}
                       />
+                      <p
+                        style={{
+                          fontSize: 11,
+                          color: "#999",
+                          marginTop: 6,
+                        }}
+                      >
+                        Changing your email will require your current password.
+                      </p>
                     </div>
                   </div>
 
                   <hr style={{ border: "none", borderTop: "1px solid #eee" }} />
 
-                  {/* Password section */}
                   <h3
                     style={{
                       margin: 0,
@@ -432,6 +510,7 @@ function Settings() {
                       gap: 20,
                     }}
                   >
+                    {/* Current password with toggle */}
                     <div>
                       <label
                         htmlFor="currentPassword"
@@ -443,24 +522,43 @@ function Settings() {
                       >
                         Current Password
                       </label>
-                      <input
-                        id="currentPassword"
-                        name="currentPassword"
-                        type="password"
-                        value={form.currentPassword}
-                        onChange={handleChange}
-                        style={{
-                          width: "100%",
-                          marginTop: 4,
-                          padding: "10px 12px",
-                          borderRadius: 4,
-                          border: "1px solid #ddd",
-                          fontSize: 15,
-                          outline: "none",
-                        }}
-                      />
+                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                        <input
+                          id="currentPassword"
+                          name="currentPassword"
+                          type={showCurrentPassword ? "text" : "password"}
+                          value={form.currentPassword}
+                          onChange={handleChange}
+                          style={{
+                            flex: 1,
+                            padding: "10px 12px",
+                            borderRadius: 4,
+                            border: "1px solid #ddd",
+                            fontSize: 15,
+                            outline: "none",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowCurrentPassword((s) => !s)
+                          }
+                          style={{
+                            padding: "0 12px",
+                            borderRadius: 4,
+                            border: "1px solid #ddd",
+                            background: "#f5f5f5",
+                            fontSize: 12,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {showCurrentPassword ? "Hide" : "Show"}
+                        </button>
+                      </div>
                     </div>
 
+                    {/* New password with toggle */}
                     <div>
                       <label
                         htmlFor="newPassword"
@@ -472,24 +570,41 @@ function Settings() {
                       >
                         New Password
                       </label>
-                      <input
-                        id="newPassword"
-                        name="newPassword"
-                        type="password"
-                        value={form.newPassword}
-                        onChange={handleChange}
-                        style={{
-                          width: "100%",
-                          marginTop: 4,
-                          padding: "10px 12px",
-                          borderRadius: 4,
-                          border: "1px solid #ddd",
-                          fontSize: 15,
-                          outline: "none",
-                        }}
-                      />
+                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                        <input
+                          id="newPassword"
+                          name="newPassword"
+                          type={showNewPassword ? "text" : "password"}
+                          value={form.newPassword}
+                          onChange={handleChange}
+                          style={{
+                            flex: 1,
+                            padding: "10px 12px",
+                            borderRadius: 4,
+                            border: "1px solid #ddd",
+                            fontSize: 15,
+                            outline: "none",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword((s) => !s)}
+                          style={{
+                            padding: "0 12px",
+                            borderRadius: 4,
+                            border: "1px solid #ddd",
+                            background: "#f5f5f5",
+                            fontSize: 12,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {showNewPassword ? "Hide" : "Show"}
+                        </button>
+                      </div>
                     </div>
 
+                    {/* Confirm password with toggle */}
                     <div>
                       <label
                         htmlFor="confirmPassword"
@@ -501,26 +616,43 @@ function Settings() {
                       >
                         Confirm New Password
                       </label>
-                      <input
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        type="password"
-                        value={form.confirmPassword}
-                        onChange={handleChange}
-                        style={{
-                          width: "100%",
-                          marginTop: 4,
-                          padding: "10px 12px",
-                          borderRadius: 4,
-                          border: "1px solid #ddd",
-                          fontSize: 15,
-                          outline: "none",
-                        }}
-                      />
+                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                        <input
+                          id="confirmPassword"
+                          name="confirmPassword"
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={form.confirmPassword}
+                          onChange={handleChange}
+                          style={{
+                            flex: 1,
+                            padding: "10px 12px",
+                            borderRadius: 4,
+                            border: "1px solid #ddd",
+                            fontSize: 15,
+                            outline: "none",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowConfirmPassword((s) => !s)
+                          }
+                          style={{
+                            padding: "0 12px",
+                            borderRadius: 4,
+                            border: "1px solid #ddd",
+                            background: "#f5f5f5",
+                            fontSize: 12,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {showConfirmPassword ? "Hide" : "Show"}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Actions row (Point 4: Save / Cancel) */}
                   <div
                     style={{
                       display: "flex",
@@ -583,7 +715,6 @@ function Settings() {
         </div>
       </main>
 
-      {/* Footer (Point 1 / logo text) */}
       <footer
         style={{
           background: garnet,
