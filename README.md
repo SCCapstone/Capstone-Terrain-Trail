@@ -141,7 +141,6 @@ Open a new terminal (keep the server running) and do:
 
 cd client
 npm install
-<<<<<<< HEAD
 npm start
 
 
@@ -162,6 +161,4 @@ npx cypress run
 
 
 
-=======
 npm start
->>>>>>> origin/main
