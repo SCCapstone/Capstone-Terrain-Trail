@@ -5,10 +5,13 @@ Our web app lets users plot and rate campus routes for walking, biking, or drivi
 Project description wiki: https://github.com/SCCapstone/Capstone-Terrain-Trail/wiki/Project-Description
 Project design wiki: https://github.com/SCCapstone/Capstone-Terrain-Trail/wiki/Design
 
-## External Requirements 
+## External Requirements
 
-In order to build this project you will need to run commands: 
+Node.js and npm are required to build and run this project.
 
+From the client directory:
+
+```bash
 npm install
 
 
@@ -26,8 +29,9 @@ You may also see any lint errors in the console.
 
 ### `npm test`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Launches the test runner in the interactive watch mode.
+
+See the test section below for more information.
 
 ### `npm run build`
 
@@ -43,41 +47,31 @@ See the section about [deployment](https://facebook.github.io/create-react-app/d
 
 **Note: this is a one-way operation. Once you `eject`, you can't go back!**
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Testing
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+This project uses **Jest**, **Cypress**, and **React Testing Library** for automated testing.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Test Location
 
-## Learn More
+All bahavioral automated tests are located in:
+client/src/pages
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Tests are identified using the filename patterns:
+*.test.js
+*.test.jsx
 
-### Code Splitting
+### Running the Behavioral Tests
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+From the project root:
 
-### Analyzing the Bundle Size
+```bash
+cd client
+npm install   # if dependencies are not already installed
+npm test
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+When the test runner starts in watch mode, press:
+a
 
 # Unit Testing Instructions (Jest)
 (CreateTrail.test.js located in client/src/pages)
