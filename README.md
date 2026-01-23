@@ -83,7 +83,7 @@ API running on http://localhost:4000
 
 ## Testing
 
-This project uses Jest and React Testing Library for automated testing.
+This project uses Jest, Cypress, and React Testing Library for automated testing.
 
 
 ### Test Location
@@ -112,6 +112,23 @@ When the test runner starts in watch mode, press:
 a
 
 to run all tests.
+
+### Testing for the setting page:
+
+cd server
+npm start
+
+Open another window of terminal:
+
+cd client
+npm start
+
+Open another window of terminal:
+cd client
+npx cypress run
+
+If is there is a error you might need to install cypress with this command in the client: 
+npm install -D cypress
 
 
 ### Test Types Included
