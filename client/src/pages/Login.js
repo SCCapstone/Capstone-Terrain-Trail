@@ -1,3 +1,4 @@
+// testingggg
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import horseshoe from "./horseshoe_now.jpg";
@@ -8,11 +9,12 @@ export default function Login() {
   const [msg, setMsg] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:4000";
 
   async function handleSubmit(e) {
     e.preventDefault();
     setMsg("");
-    const res = await fetch("http://localhost:4000/api/login", {
+    const res = await fetch(`${API_BASE}/api/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),

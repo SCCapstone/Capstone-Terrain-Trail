@@ -1,147 +1,160 @@
-# Terrain Trail 
+# Terrain Trail
 
-Our web app lets users plot and rate campus routes for walking, biking, or driving. Routes are rated by terrain and accessibility, helping users find the most efficient path for their chosen mode of transportation on the campus of the University of South Carolina. 
+Our web app lets users plot and rate campus routes for walking, biking, or driving.
+Routes are rated by terrain and accessibility, helping users find the most efficient
+path for their chosen mode of transportation on the campus of the University of
+South Carolina.
 
-Project description wiki: https://github.com/SCCapstone/Capstone-Terrain-Trail/wiki/Project-Description
-Project design wiki: https://github.com/SCCapstone/Capstone-Terrain-Trail/wiki/Design
+Project description wiki:
+https://github.com/SCCapstone/Capstone-Terrain-Trail/wiki/Project-Description
 
-## External Requirements 
+Project design wiki:
+https://github.com/SCCapstone/Capstone-Terrain-Trail/wiki/Design
 
-In order to build this project you will need to run commands: 
+
+## External Requirements
+
+Node.js and npm are required to build and run this project.
+
+From the client directory:
 
 npm install
 
 
-## Deployment 
+## Deployment
 
-In the project directory, you can run:
+### Running the Client
 
-### `npm start`
+From the project root:
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
-
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-
-# Unit Testing Instructions (Jest)
-(CreateTrail.test.js located in client/src/pages)
 cd client
-npm install (if package-lock.json is not present)
-npm test
-click "a" if needed
+npm install
+npm start
 
-# Authors 
+Runs the app in development mode at:
+http://localhost:3000
 
-## Kyle Hix
-
-## Madeleine McBride
-Email: MM249@email.sc.edu
-
-## Gavin Orme
-Email: Gorme@email.sc.edu
-
-## Meetkumar Patel
-Email: mmp16@email.sc.edu
-
-## Donovan Williams 
-Email: dw58@email.sc.edu
+The page will reload when you make changes.
+You may also see lint errors in the console.
 
 
+### Running the Server
 
-# New way to run  it
+Fetch the latest code and switch to the active branch:
 
 git fetch origin
 git checkout Meetkumar-p
 git pull
 
+Project structure:
 
-Now you should see this structure:
 Capstone-Terrain-Trail/
-├── client/     # React app
-└── server/     # Express + MongoDB
+├── client/     # React frontend
+└── server/     # Express + MongoDB backend
 
-Go into the server folder and install deps:
+
+From the server directory:
 
 cd server
 npm install
 
-We don’t commit the real .env, so do this:
+
+Environment variables are not committed. Create a local .env file:
+
 cp .env.example .env
 
-Then open server/.env and fill in the real MongoDB password that was shared:
+
+Edit server/.env and add the provided credentials:
 
 MONGODB_URI=mongodb+srv://colatrails:<password>@cluster0.ipndphq.mongodb.net/colatrails?retryWrites=true&w=majority&appName=Cluster0
 PORT=4000
 JWT_SECRET=anyrandomstring
 
 
+Start the server:
+
 npm start
 
-You should see:
+Expected output:
+
 DB connected
 API running on http://localhost:4000
 
-Open a new terminal (keep the server running) and do:
+
+## Testing
+
+This project uses Jest, Cypress, and React Testing Library for automated testing.
+
+
+### Test Location
+
+All automated tests are located in:
+
+client/src/pages/
+
+
+Tests are identified using the filename patterns:
+
+*.test.js
+*.test.jsx
+
+
+### Running the Tests
+
+From the project root:
 
 cd client
 npm install
+npm test
+
+When the test runner starts in watch mode, press:
+
+a
+
+to run all tests.
+
+### Testing for the setting page:
+
+cd server
 npm start
 
+Open another window of terminal:
+
+cd client
+npm start
+
+Open another window of terminal:
+cd client
+npx cypress run
+
+If is there is a error you might need to install cypress with this command in the client: 
+npm install -D cypress
 
 
+### Test Types Included
+
+Unit / Component Tests
+- Verify that individual pages and components render correctly and contain required UI elements.
+
+Behavioral Tests
+- Simulate user-visible behavior such as loading saved routes and rendering the Sign Up page
+  to ensure core workflows function as expected.
+
+All tests must pass before code is committed or merged.
+
+
+## Authors
+
+Kyle Hix
+
+Madeleine McBride
+Email: MM249@email.sc.edu
+
+Gavin Orme
+Email: Gorme@email.sc.edu
+
+Meetkumar Patel
+Email: mmp16@email.sc.edu
+
+Donovan Williams
+Email: dw58@email.sc.edu
