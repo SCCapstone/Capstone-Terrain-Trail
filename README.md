@@ -147,6 +147,7 @@ All tests must pass before code is committed or merged.
 ## Authors
 
 Kyle Hix
+Email: KHIX@email.sc.edu
 
 Madeleine McBride
 Email: MM249@email.sc.edu
