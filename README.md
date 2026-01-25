@@ -125,6 +125,7 @@ npm start
 
 Open another window of terminal:
 cd client
+
 npx cypress run
 
 If is there is a error you might need to install cypress with this command in the client: 
