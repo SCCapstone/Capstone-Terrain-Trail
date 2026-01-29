@@ -14,9 +14,10 @@ const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 const LOCAL_STORAGE_KEY = "savedRoutes_v1";
 
 function travelModeFromType(type) {
-  if (type === "🚲") return google.maps.TravelMode.BICYCLING;
   if (type === "🚗") return google.maps.TravelMode.DRIVING;
-  return google.maps.TravelMode.WALKING;
+  if (type === "🚲") return google.maps.TravelMode.BICYCLING;
+  if (type === "🛴" || type === "🛹") return google.maps.TravelMode.BICYCLING;
+  return google.maps.TravelMode.WALKING; // 👣 🏃 ♿
 }
 
 export default function CreateTrail() {
@@ -43,6 +44,89 @@ export default function CreateTrail() {
   const [routeType, setRouteType] = useState("👣"); // 👣 🚲 🚗
   const [saving, setSaving] = useState(false);
 
+
+
+
+// put this above calculateRoute (with your other helpers)
+function calculateCustomDurationFromWalking(walkingSeconds, multiplier) {
+  if (!walkingSeconds || !multiplier) return "";
+  // walkingSeconds is seconds as returned by Google (leg.duration.value)
+  const runningSeconds = walkingSeconds / multiplier; // multiplier=2 => running = half time
+  const minutes = Math.round(runningSeconds / 60);
+  return `${minutes} min`;
+}
+
+async function calculateRoute(typeArg) {
+  const originVal = originInputRef.current?.value?.trim();
+  const destVal = destInputRef.current?.value?.trim();
+  if (!originVal || !destVal) return;
+
+  const usedType = typeArg || routeType;
+  const travelMode = travelModeFromType(usedType);
+
+  try {
+    const directionsService = new google.maps.DirectionsService();
+
+    const request = {
+      origin: originVal,
+      destination: destVal,
+      travelMode,
+    };
+
+    const result = await directionsService.route(request);
+
+    setDirectionsResult(result);
+
+    const leg = result.routes[0].legs[0];
+    setDistanceText(leg.distance.text);
+
+    // 🚗 Driving → Google ETA
+    if (travelMode === google.maps.TravelMode.DRIVING) {
+      setDurationText(leg.duration.text);
+    }
+
+    // 🚲 Biking OR 👣 Walking → Google ETA
+    else if (usedType === "🚲" || usedType === "👣") {
+      setDurationText(leg.duration.text);
+    }
+
+    // 🏃 Running → DOUBLE walking speed
+    else if (usedType === "🏃") {
+      setDurationText(
+        calculateCustomDurationFromWalking(
+          leg.duration.value,
+          2.0
+        )
+      );
+    }
+
+    // ♿ Wheelchair → slower than walking
+    else if (usedType === "♿") {
+      setDurationText(
+        calculateCustomDurationFromWalking(
+          leg.duration.value,
+          0.8
+        )
+      );
+    }
+
+    // 🛴 🛹 → estimated faster than walking
+    // might need to fix time/speed later
+    else {
+      setDurationText(
+        calculateCustomDurationFromWalking(
+          leg.duration.value,
+          1.0
+        )
+      );
+    }
+  } catch (err) {
+    console.error("calculateRoute error:", err);
+    alert("Could not calculate route. See console for details.");
+  }
+}
+
+
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -68,43 +152,10 @@ export default function CreateTrail() {
     }
   }, [isLoaded]);
 
-  async function calculateRoute() {
-    const originVal = originInputRef.current?.value?.trim();
-    const destVal = destInputRef.current?.value?.trim();
+ // Replace the old calculateRoute function with this exact function
+// inside the CreateTrail component (where your old one currently is).
 
-    if (!originVal || !destVal) {
-      alert("Please enter both origin and destination.");
-      return;
-    }
 
-    try {
-      const directionsService = new google.maps.DirectionsService();
-
-      const result = await directionsService.route({
-        origin: originVal,
-        destination: destVal,
-        travelMode: travelModeFromType(routeType),
-      });
-
-      setDirectionsResult(result);
-
-      const leg = result.routes[0].legs[0];
-      setDistanceText(leg.distance?.text || "");
-      setDurationText(leg.duration?.text || "");
-
-      const originLoc = leg.start_location;
-      const lat = originLoc.lat();
-      const lng = originLoc.lng();
-
-      setOriginPosition({ lat, lng });
-      setMapCenter({ lat, lng });
-
-      map?.fitBounds(result.routes[0].bounds);
-    } catch (err) {
-      console.error("Directions error:", err);
-      alert("Could not calculate route for this travel mode.");
-    }
-  }
 
   function clearRoute() {
     setDirectionsResult(null);
@@ -179,15 +230,49 @@ export default function CreateTrail() {
           style={{ padding: 8, minWidth: 240 }}
         />
 
-        <select
-          value={routeType}
-          onChange={(e) => setRouteType(e.target.value)}
-          style={{ padding: 8 }}
-        >
-          <option value="👣">Walking</option>
-          <option value="🚲">Biking</option>
-          <option value="🚗">Driving</option>
-        </select>
+        {/* === transport icon toolbar (replace your select) === */}
+<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+  {[
+    { key: "👣", label: "Walking" },
+    { key: "🚲", label: "Biking" },
+    { key: "🚗", label: "Driving" },
+    { key: "🛹", label: "Skateboarding" },
+    { key: "🏃", label: "Running" },
+    { key: "🛴", label: "Scootering" },
+    { key: "♿", label: "Wheelchair" },
+  ].map((opt) => {
+    const selected = routeType === opt.key;
+    return (
+      <button
+        key={opt.key}
+        title={opt.label}
+        onClick={async () => {
+  setRouteType(opt.key);
+  const originVal = originInputRef.current?.value?.trim();
+  const destVal = destInputRef.current?.value?.trim();
+  if (originVal && destVal) {
+    try {
+      // pass opt.key so calculateRoute uses the new selection immediately
+      await calculateRoute(opt.key);
+    } catch (e) { /* calculateRoute handles errors */ }
+  }
+}}
+        style={{
+          fontSize: 18,
+          padding: "6px 10px",
+          borderRadius: 6,
+          border: selected ? "2px solid #0b63d6" : "1px solid #ddd",
+          background: selected ? "#e8f0ff" : "white",
+          cursor: "pointer",
+          lineHeight: 1,
+        }}
+        aria-pressed={selected}
+      >
+        {opt.key}
+      </button>
+    );
+  })}
+</div>
 
         <button onClick={calculateRoute}>Calculate Route</button>
         <button onClick={clearRoute}>Clear</button>
