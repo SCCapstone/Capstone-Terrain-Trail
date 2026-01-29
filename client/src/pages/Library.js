@@ -1,19 +1,40 @@
+/* global google */
 import React, { useEffect, useRef, useState } from "react";
 import { GoogleMap, useJsApiLoader, DirectionsRenderer } from "@react-google-maps/api";
 
 const containerStyle = {
   width: "100%",
   height: "600px",
-  borderRadius: "12px",
-  boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
 };
 
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
+const LOCAL_STORAGE_KEY = "savedRoutes_v1";
+
+const FALLBACK_ROUTES = [
+  {
+    id: "r1",
+    title: "Swearingen to LeConte",
+    origin: "301 Main St, Columbia, SC 29208",
+    destination: "1523 Greene St, Columbia, SC 29225",
+    distance: ".8 mi",
+    duration: "19 mins",
+    type: "👣",
+  },
+  {
+    id: "r2",
+    title: "Swearingen to LeConte",
+    origin: "301 Main St, Columbia, SC 29208",
+    destination: "1523 Greene St, Columbia, SC 29225",
+    distance: ".7 mi",
+    duration: "7 mins",
+    type: "🚲",
+  },
+];
 
 function travelModeFromType(type) {
-  if (type === "🚲") return "BICYCLING";
-  if (type === "🚗") return "DRIVING";
-  return "WALKING";
+  if (type === "🚲") return google.maps.TravelMode.BICYCLING;
+  if (type === "🚗") return google.maps.TravelMode.DRIVING;
+  return google.maps.TravelMode.WALKING;
 }
 
 export default function Library() {
@@ -31,349 +52,195 @@ export default function Library() {
   const [durationText, setDurationText] = useState("");
   const [originPosition, setOriginPosition] = useState(null);
 
-  const [savedRoutes, setSavedRoutes] = useState([
-    {
-      id: "r1",
-      title: "Swearingen to LeConte",
-      origin: "301 Main St, Columbia, SC 29208",
-      destination: "1523 Greene St, Columbia, SC 29225",
-      distance: ".8 mi",
-      duration: "19 mins",
-      type: "👣",
-    },
-    {
-      id: "r2",
-      title: "Swearingen to LeConte",
-      origin: "301 Main St, Columbia, SC 29208",
-      destination: "1523 Greene St, Columbia, SC 29225",
-      distance: ".7 mi",
-      duration: "7 mins",
-      type: "🚲",
-    },
-  ]);
-
-  const [query, setQuery] = useState("");
-
-  const filteredRoutes = savedRoutes;
-
   const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [loadingRouteId, setLoadingRouteId] = useState(null);
 
-  useEffect(() => {
-    return () => {
-      mapRef.current = null;
-      setMap(null);
-    };
-  }, []);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  function panToTarget(target, zoom = 14) {
-    if (!mapRef.current) return;
-    mapRef.current.panTo(target);
+  const [savedRoutes, setSavedRoutes] = useState(() => {
     try {
-      mapRef.current.setZoom(zoom);
-    } catch (e) {}
-    setMapCenter(target);
-  }
+      const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      }
+    } catch (e) {
+      console.warn("Failed to load saved routes", e);
+    }
+    return FALLBACK_ROUTES;
+  });
 
-  function recenterToOrigin() {
-    const target = originPosition || DEFAULT_CENTER;
-    panToTarget(target, 14);
-  }
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        LOCAL_STORAGE_KEY,
+        JSON.stringify(savedRoutes)
+      );
+    } catch (e) {
+      console.warn("Failed to save routes", e);
+    }
+  }, [savedRoutes]);
 
-  async function geocodeAddress(address) {
-    return new Promise((resolve, reject) => {
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode({ address }, (results, status) => {
-        if (status === "OK" && results && results[0]) {
-          const loc = results[0].geometry.location;
-          resolve({ lat: loc.lat(), lng: loc.lng() });
-        } else {
-          reject(new Error(`Geocode failed: ${status}`));
-        }
-      });
-    });
-  }
+  const filteredRoutes = savedRoutes.filter((route) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      route.title.toLowerCase().includes(q) ||
+      route.origin.toLowerCase().includes(q) ||
+      route.destination.toLowerCase().includes(q)
+    );
+  });
 
-  async function loadSavedRoute(route) {
-    if (!isLoaded || !window.google?.maps) return;
+  async function loadRoute(route) {
+    if (!isLoaded || !google?.maps) return;
 
     setLoadingRouteId(route.id);
     setSelectedRouteId(route.id);
 
     try {
-      const originLatLng = await geocodeAddress(route.origin);
-      setOriginPosition(originLatLng);
+      const service = new google.maps.DirectionsService();
 
-      const service = new window.google.maps.DirectionsService();
-      const travelMode = travelModeFromType(route.type);
-
-      const result = await new Promise((resolve, reject) => {
-        service.route(
-          {
-            origin: route.origin,
-            destination: route.destination,
-            travelMode: window.google.maps.TravelMode[travelMode],
-            provideRouteAlternatives: false,
-          },
-          (res, status) => {
-            if (status === "OK" && res) resolve(res);
-            else reject(new Error(`Directions failed: ${status}`));
-          }
-        );
+      const result = await service.route({
+        origin: route.origin,
+        destination: route.destination,
+        travelMode: travelModeFromType(route.type),
       });
 
       setDirectionsResult(result);
 
-      const leg = result?.routes?.[0]?.legs?.[0];
-      const dist = leg?.distance?.text || route.distance || "";
-      const dur = leg?.duration?.text || route.duration || "";
-      setDistanceText(dist);
-      setDurationText(dur);
+      const leg = result.routes[0].legs[0];
+      setDistanceText(leg.distance?.text || route.distance || "");
+      setDurationText(leg.duration?.text || route.duration || "");
 
-      setSavedRoutes((prev) =>
-        prev.map((r) =>
-          r.id === route.id ? { ...r, distance: dist || r.distance, duration: dur || r.duration } : r
-        )
-      );
+      const originLoc = leg.start_location;
+      const lat = originLoc.lat();
+      const lng = originLoc.lng();
+      setOriginPosition({ lat, lng });
+      setMapCenter({ lat, lng });
 
-      if (mapRef.current && result?.routes?.[0]?.bounds) {
-        mapRef.current.fitBounds(result.routes[0].bounds);
-      } else {
-        panToTarget(originLatLng, 14);
-      }
+      map?.fitBounds(result.routes[0].bounds);
     } catch (err) {
-      console.error(err);
-      setDirectionsResult(null);
-      setDistanceText("");
-      setDurationText("");
+      console.error("Failed to load route:", err);
+      alert("Could not load route.");
     } finally {
       setLoadingRouteId(null);
     }
   }
 
-  function deleteSavedRoute(routeId) {
-    setSavedRoutes((prev) => prev.filter((r) => r.id !== routeId));
-
-    if (routeId === selectedRouteId) {
-      setSelectedRouteId(null);
-      setLoadingRouteId(null);
-      setDirectionsResult(null);
-      setDistanceText("");
-      setDurationText("");
-      setOriginPosition(null);
-      setMapCenter(DEFAULT_CENTER);
-    }
+  function recenterToOrigin() {
+    const target = originPosition || DEFAULT_CENTER;
+    if (!map) return;
+    map.panTo(target);
+    map.setZoom(14);
   }
 
-  if (loadError)
-    return (
-      <div style={{ padding: 16 }}>
-        Error loading Google Maps API — check console for more details.
-      </div>
-    );
-  if (!isLoaded) return <div style={{ padding: 16 }}>Loading map...</div>;
+  if (loadError) return <div>Error loading Google Maps</div>;
+  if (!isLoaded) return <div>Loading map...</div>;
 
   return (
-    <div style={{ padding: "1.5rem", maxWidth: 1400, margin: "0 auto" }}>
-      <h2 style={{ marginBottom: 12 }}>Library</h2>
+    <div style={{ padding: "1.5rem", maxWidth: 1200, margin: "0 auto" }}>
+      <h2>Library</h2>
 
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-        <div style={{ flex: "1 1 0", minWidth: 600 }}>
-          <div style={{ marginBottom: 12, display: "flex", gap: 8, alignItems: "center" }}>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search saved routes by title, origin, or destination"
-              style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid #ccc" }}
-            />
-            <button
-              onClick={() => setQuery("")}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 8,
-                border: "1px solid #888",
-                background: "#fff",
-                cursor: "pointer",
-              }}
-            >
-              Clear
-            </button>
-          </div>
+      {/* SEARCH BAR */}
+      <input
+        type="text"
+        placeholder="Search saved routes..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "10px 12px",
+          marginBottom: 16,
+          borderRadius: 8,
+          border: "1px solid #ccc",
+          fontSize: 14,
+        }}
+      />
 
-          <div
-            style={{
-              position: "relative",
-              borderRadius: 12,
-              overflow: "hidden",
-              boxShadow: "0 6px 20px rgba(0,0,0,0.06)",
+      <div style={{ display: "flex", gap: 16 }}>
+        {/* MAP */}
+        <div style={{ flex: 1 }}>
+          <GoogleMap
+            mapContainerStyle={containerStyle}
+            center={mapCenter}
+            zoom={14}
+            onLoad={(m) => {
+              setMap(m);
+              mapRef.current = m;
+            }}
+            options={{
+              fullscreenControl: false,
+              streetViewControl: false,
+              mapTypeControl: false,
             }}
           >
-            <GoogleMap
-              mapContainerStyle={containerStyle}
-              center={mapCenter}
-              zoom={14}
-              onLoad={(m) => {
-                setMap(m);
-                mapRef.current = m;
-              }}
-              onUnmount={() => {
-                mapRef.current = null;
-                setMap(null);
-              }}
-              options={{
-                fullscreenControl: false,
-                streetViewControl: false,
-                mapTypeControl: false,
-                clickableIcons: false,
-              }}
-            >
-              {directionsResult && <DirectionsRenderer directions={directionsResult} />}
-            </GoogleMap>
-
-            <button
-              onClick={recenterToOrigin}
-              aria-label="Recenter to origin"
-              title="Recenter to origin"
-              style={{
-                position: "absolute",
-                left: 16,
-                bottom: 16,
-                zIndex: 1000,
-                padding: "10px 12px",
-                borderRadius: 8,
-                border: "none",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
-                background: "#fff",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                fill="currentColor"
-                viewBox="0 0 16 16"
-                aria-hidden
-              >
-                <path d="M8 3a5 5 0 1 0 0 10A5 5 0 0 0 8 3zM1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8z" />
-                <path d="M8 5.5a.5.5 0 0 1 .5.5v2.25l1.5.875a.5.5 0 0 1-.5.866L8 8V6a.5.5 0 0 1 .5-.5z" />
-              </svg>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Recenter</span>
-            </button>
-
-            {(distanceText || durationText) && (
-              <div
-                style={{
-                  position: "absolute",
-                  right: 16,
-                  bottom: 16,
-                  zIndex: 1000,
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  background: "rgba(255,255,255,0.95)",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
-                  fontSize: 13,
-                  color: "#222",
-                  maxWidth: 220,
-                }}
-              >
-                <div style={{ fontWeight: 700, marginBottom: 4 }}>Route</div>
-                {distanceText && <div>Distance: {distanceText}</div>}
-                {durationText && <div>ETA: {durationText}</div>}
-              </div>
+            {directionsResult && (
+              <DirectionsRenderer directions={directionsResult} />
             )}
-          </div>
+          </GoogleMap>
+
+          {(distanceText || durationText) && (
+            <div style={{ marginTop: 8 }}>
+              <strong>Distance:</strong> {distanceText} &nbsp;
+              <strong>ETA:</strong> {durationText}
+            </div>
+          )}
+
+          <button onClick={recenterToOrigin} style={{ marginTop: 8 }}>
+            Recenter
+          </button>
         </div>
 
+        {/* ROUTE LIST */}
         <aside
           style={{
-            width: 360,
-            maxHeight: 720,
-            overflowY: "auto",
-            borderRadius: 12,
-            boxShadow: "0 6px 20px rgba(0,0,0,0.06)",
+            width: 340,
+            border: "1px solid #ddd",
+            borderRadius: 8,
             padding: 12,
-            background: "#fff",
+            maxHeight: 600,
+            overflowY: "auto",
           }}
         >
-          <h3 style={{ marginTop: 0 }}>Saved Routes ({filteredRoutes.length})</h3>
+          <h3>Saved Routes ({filteredRoutes.length})</h3>
 
-          {filteredRoutes.length === 0 && <div style={{ color: "#666", padding: 16 }}>No routes found.</div>}
+          {filteredRoutes.length === 0 && (
+            <div style={{ color: "#666", fontSize: 14 }}>
+              No routes match your search.
+            </div>
+          )}
 
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {filteredRoutes.map((route) => {
-              const isSelected = route.id === selectedRouteId;
-              return (
-                <li
-                  key={route.id}
-                  onClick={() => setSelectedRouteId(route.id)}
-                  style={{
-                    padding: 12,
-                    borderRadius: 8,
-                    marginBottom: 10,
-                    cursor: "pointer",
-                    border: "1px solid #eee",
-                    background: isSelected ? "#f5f7fa" : "#fff",
-                    transition: "background 120ms ease",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ fontWeight: 700 }}>
-                      {route.title} {route.type}
-                    </div>
-                    <div style={{ fontSize: 12, color: "#666" }}>
-                      {route.distance || ""}
-                      {route.duration ? ` • ${route.duration}` : ""}
-                    </div>
-                  </div>
+          {filteredRoutes.map((route) => (
+            <div
+              key={route.id}
+              style={{
+                padding: 10,
+                marginBottom: 10,
+                border: "1px solid #eee",
+                borderRadius: 6,
+                background:
+                  route.id === selectedRouteId ? "#f5f7fa" : "#fff",
+              }}
+            >
+              <div style={{ fontWeight: 700 }}>
+                {route.title} {route.type}
+              </div>
+              <div style={{ fontSize: 13 }}>
+                {route.origin} → {route.destination}
+              </div>
+              <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+                {route.distance} {route.duration && `• ${route.duration}`}
+              </div>
 
-                  <div style={{ fontSize: 13, color: "#444", marginTop: 6 }}>
-                    {route.origin} → {route.destination}
-                  </div>
-
-                  <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        loadSavedRoute(route);
-                      }}
-                      disabled={loadingRouteId === route.id}
-                      style={{
-                        padding: "6px 8px",
-                        borderRadius: 6,
-                        border: "1px solid #888",
-                        background: "#fff",
-                        cursor: loadingRouteId === route.id ? "not-allowed" : "pointer",
-                        opacity: loadingRouteId === route.id ? 0.7 : 1,
-                      }}
-                    >
-                      {loadingRouteId === route.id ? "Loading..." : "Load"}
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteSavedRoute(route.id);
-                      }}
-                      style={{
-                        padding: "6px 8px",
-                        borderRadius: 6,
-                        border: "1px solid #e0b0b0",
-                        background: "#fff",
-                        color: "#b00",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+              <button
+                onClick={() => loadRoute(route)}
+                disabled={loadingRouteId === route.id}
+                style={{ marginTop: 6 }}
+              >
+                {loadingRouteId === route.id ? "Loading..." : "Load"}
+              </button>
+            </div>
+          ))}
         </aside>
       </div>
     </div>
