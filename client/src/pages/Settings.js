@@ -43,19 +43,23 @@ function Settings() {
             Authorization: `Bearer ${token}`,
           },
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
           throw new Error(data.message || "Failed to load account data.");
         }
 
-        // chnage these if the backend is different 
-        const user = data.user || data;
-        const name = user.name || "";
-        const email = user.email || "";
-        const baseOriginal = { name, email };
+        // backend returns: { user, source }
+        const user = data.user || {};
+        const baseOriginal = {
+          name: user.name || "",
+          email: user.email || "",
+          username: user.username || "",
+        };
 
         setOriginal(baseOriginal);
+
+         // reset edit fields
         setForm({
           newName: "",
           newEmail: "",
@@ -66,7 +70,7 @@ function Settings() {
         setStatus({ type: "", message: "" });
       } 
       catch (err) {
-        setStatus({ type: "error", message: err.message });
+        setStatus({ type: "error", message: err.message || "Server error." });
       }
       finally {
         setLoading(false);
@@ -74,7 +78,7 @@ function Settings() {
     }
 
     fetchUser();
-  }, []);
+  }, [API_BASE]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -86,107 +90,127 @@ function Settings() {
   // save updated account info
   async function handleSave(e) {
     e.preventDefault();
-    setStatus( { type: "", message: ""});
+    if (!original || saving) return;
 
-    if (!original) return;
+    setStatus({ type: "", message: ""});
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setStatus({ type: "error", message: "You are not logged in."});
+      return;
+    }
 
     const trimmedNewName = form.newName.trim();
     const trimmedNewEmail = form.newEmail.trim().toLowerCase();
 
-    const nameToSend = trimmedNewName || original.name;
-    const emailToSend = trimmedNewEmail || original.email;
+    const originalEmailLower = (original.email || "").toLowerCase();
 
-    const isEmailChanging = trimmedNewEmail && trimmedNewEmail != original.email.toLowerCase();
-    const isPasswordChanging = form.newPassword || form.confirmPassword || form.currentPassword;
+    const isNameChanging = trimmedNewName.length > 0 && trimmedNewName !== original.name;
+    const isEmailChanging = trimmedNewEmail.length > 0 && trimmedNewEmail !== originalEmailLower;
 
-    // password change validation (requires current + confirmation)
-    if (isPasswordChanging) {
-      if (!form.currentPassword) {
+    const wantsPasswordChange =
+      (form.currentPassword || "").length > 0 ||
+      (form.newPassword || "").length > 0 ||
+      (form.confirmPassword || "").length > 0;
+    
+    // If changing email or password, require current password
+    if ((isEmailChanging || wantsPasswordChange) && !form.currentPassword) {
+      setStatus({
+        type: "error",
+        message: "Please enter your current password to change email or password.",
+      });
+      return;
+    }
+
+    // If password change, require new+confirm match + new length
+    if (wantsPasswordChange) {
+      if (!form.newPassword || !form.confirmPassword) {
         setStatus({
           type: "error",
-          message: "Please enter your current password to change it.",
+          message: "Please enter and confirm your new password.",
         });
         return;
       }
       if (form.newPassword !== form.confirmPassword) {
         setStatus({
           type: "error",
-          message: "New password and confirmation do not match."
+          message: "New password and confirmation do not match.",
+        });
+        return;
+      }
+      if (form.newPassword.length < 6) {
+        setStatus({
+          type: "error",
+          message: "New password must be at least 6 characters.",
         });
         return;
       }
     }
 
-    // email change requires current password
-    if (isEmailChanging && !form.currentPassword) {
-      setStatus({
-        type: "error",
-        message: "Please enter your current password to change your email."
-      });
+    // If nothing is changing, avoid calling API
+    if (!isNameChanging && !isEmailChanging && !wantsPasswordChange) {
+      setStatus({ type: "info", message: "No changes to save." });
       return;
     }
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setStatus({
-        type: "error",
-        message: "You are not logged in.",
-      });
-      return;
+    // Only send what is needed
+    const payload = {};
+    if (isEmailChanging) payload.name = trimmedNewName;
+    if (isEmailChanging) payload.email = trimmedNewEmail;
+
+    if (isEmailChanging || wantsPasswordChange) {
+      payload.currentPassword = form.currentPassword;
+    }
+
+    if (wantsPasswordChange) {
+      payload.newPassword = form.newPassword;
     }
 
     setSaving(true);
     try {
-      const res = await fetch("http://localhost:4000/api/account",  {
+      const res = await fetch(`${API_BASE}/api/account`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          name: nameToSend,
-          email: emailToSend,
-          currentPassword: form.currentPassword || undefined,
-          newPassword: form.newPassword || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
-    const data = await res.json()
-    if (!res.ok) {
-      throw new Error(data.message || "Unable to save changes.");
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || "Unable to save changes.");
+      }
+
+      // backend returns updated user in response 
+      const updated = data.user || {};
+      const updatedBase = {
+        name: updated.name ?? (isNameChanging ? trimmedNewName : original.name),
+        email: updated.email ?? (isEmailChanging ? trimmedNewEmail : original.email),
+        username: updated.username ?? original.username,
+      };
+
+      setOriginal(updatedBase);
+
+      // clear form fields after save
+      setForm({
+        newName: "",
+        newEmail: "",
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+
+      setStatus({ type: "success", message: data.message || "Changes saved." });
     }
-
-    const updatedBase = {
-      name: nameToSend,
-      email: emailToSend
-    };
-
-    setOriginal(updatedBase);
-
-    setForm({
-      newName: "",
-      newEmail: "",
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
-
-    setStatus({
-      type: "success",
-      message: "Changes saved.",
-    });
-
-    }
-
     catch (err) {
-      setStatus({ type: "error", message: err.message});
+      setStatus({ type: "error", message: err.message || "Server error." });
     }
-
     finally {
       setSaving(false);
     }
   }
-
   // cancel + revert
   function handleCancel() {
     if (!original) return;
