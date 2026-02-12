@@ -1,4 +1,4 @@
-/* global google */
+﻿/* global google */
 import React, { useEffect, useRef, useState } from "react";
 import { GoogleMap, useJsApiLoader, DirectionsRenderer } from "@react-google-maps/api";
 
@@ -18,7 +18,7 @@ const FALLBACK_ROUTES = [
     destination: "1523 Greene St, Columbia, SC 29225",
     distance: ".8 mi",
     duration: "19 mins",
-    type: "👣",
+    type: "ðŸ‘£",
   },
   {
     id: "r2",
@@ -27,14 +27,52 @@ const FALLBACK_ROUTES = [
     destination: "1523 Greene St, Columbia, SC 29225",
     distance: ".7 mi",
     duration: "7 mins",
-    type: "🚲",
+    type: "ðŸš²",
   },
 ];
 
 function travelModeFromType(type) {
-  if (type === "🚲") return google.maps.TravelMode.BICYCLING;
-  if (type === "🚗") return google.maps.TravelMode.DRIVING;
+  if (type === "ðŸš²") return google.maps.TravelMode.BICYCLING;
+  if (type === "ðŸš—") return google.maps.TravelMode.DRIVING;
   return google.maps.TravelMode.WALKING;
+}
+
+function parseDistanceToMiles(distanceText) {
+  if (!distanceText) return null;
+
+  const normalized = String(distanceText).toLowerCase().trim().replace(/,/g, "");
+  const value = parseFloat(normalized);
+  if (Number.isNaN(value)) return null;
+
+  if (normalized.includes("km")) return value * 0.621371;
+  if (normalized.includes("ft")) return value / 5280;
+  if (/\bm\b/.test(normalized)) return value * 0.000621371;
+  return value;
+}
+
+function parseDurationToMinutes(durationText) {
+  if (!durationText) return null;
+
+  const normalized = String(durationText).toLowerCase().trim();
+  let minutes = 0;
+
+  const hourMatches = normalized.matchAll(/(\d+(?:\.\d+)?)\s*(hour|hours|hr|hrs|h)\b/g);
+  for (const match of hourMatches) {
+    minutes += parseFloat(match[1]) * 60;
+  }
+
+  const minuteMatches = normalized.matchAll(/(\d+(?:\.\d+)?)\s*(minute|minutes|min|mins|m)\b/g);
+  for (const match of minuteMatches) {
+    minutes += parseFloat(match[1]);
+  }
+
+  if (minutes > 0) return minutes;
+
+  const secondsMatch = normalized.match(/(\d+(?:\.\d+)?)\s*(second|seconds|sec|secs|s)\b/);
+  if (secondsMatch) return parseFloat(secondsMatch[1]) / 60;
+
+  const fallback = parseFloat(normalized);
+  return Number.isNaN(fallback) ? null : fallback;
 }
 
 export default function Library() {
@@ -56,6 +94,10 @@ export default function Library() {
   const [loadingRouteId, setLoadingRouteId] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterType, setFilterType] = useState("all");
+  const [maxDistanceMiles, setMaxDistanceMiles] = useState("");
+  const [maxDurationMinutes, setMaxDurationMinutes] = useState("");
 
   const [savedRoutes, setSavedRoutes] = useState(() => {
     try {
@@ -72,24 +114,60 @@ export default function Library() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(
-        LOCAL_STORAGE_KEY,
-        JSON.stringify(savedRoutes)
-      );
+      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(savedRoutes));
     } catch (e) {
       console.warn("Failed to save routes", e);
     }
   }, [savedRoutes]);
 
+  const routeTypeOptions = Array.from(
+    new Set(savedRoutes.map((route) => route.type).filter(Boolean))
+  );
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const maxDistanceValue = Number.parseFloat(maxDistanceMiles);
+  const maxDurationValue = Number.parseFloat(maxDurationMinutes);
+  const hasDistanceFilter =
+    maxDistanceMiles.trim() !== "" && !Number.isNaN(maxDistanceValue);
+  const hasDurationFilter =
+    maxDurationMinutes.trim() !== "" && !Number.isNaN(maxDurationValue);
+
+  const activeFilterCount =
+    (filterType !== "all" ? 1 : 0) +
+    (hasDistanceFilter ? 1 : 0) +
+    (hasDurationFilter ? 1 : 0);
+
   const filteredRoutes = savedRoutes.filter((route) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      route.title.toLowerCase().includes(q) ||
-      route.origin.toLowerCase().includes(q) ||
-      route.destination.toLowerCase().includes(q)
-    );
+    const title = String(route.title || "").toLowerCase();
+    const origin = String(route.origin || "").toLowerCase();
+    const destination = String(route.destination || "").toLowerCase();
+
+    const matchesSearch =
+      !normalizedQuery ||
+      title.includes(normalizedQuery) ||
+      origin.includes(normalizedQuery) ||
+      destination.includes(normalizedQuery);
+
+    const matchesType = filterType === "all" || route.type === filterType;
+
+    const routeDistanceMiles = parseDistanceToMiles(route.distance);
+    const matchesDistance =
+      !hasDistanceFilter ||
+      (routeDistanceMiles !== null && routeDistanceMiles <= maxDistanceValue);
+
+    const routeDurationMinutes = parseDurationToMinutes(route.duration);
+    const matchesDuration =
+      !hasDurationFilter ||
+      (routeDurationMinutes !== null && routeDurationMinutes <= maxDurationValue);
+
+    return matchesSearch && matchesType && matchesDistance && matchesDuration;
   });
+
+  function clearFilters() {
+    setFilterType("all");
+    setMaxDistanceMiles("");
+    setMaxDurationMinutes("");
+  }
 
   async function loadRoute(route) {
     if (!isLoaded || !google?.maps) return;
@@ -127,6 +205,23 @@ export default function Library() {
     }
   }
 
+  function deleteRoute(routeId) {
+    const shouldDelete = window.confirm("Delete this saved route?");
+    if (!shouldDelete) return;
+
+    setSavedRoutes((prevRoutes) => prevRoutes.filter((route) => route.id !== routeId));
+
+    if (selectedRouteId === routeId) {
+      setSelectedRouteId(null);
+      setLoadingRouteId(null);
+      setDirectionsResult(null);
+      setDistanceText("");
+      setDurationText("");
+      setOriginPosition(null);
+      setMapCenter(DEFAULT_CENTER);
+    }
+  }
+
   function recenterToOrigin() {
     const target = originPosition || DEFAULT_CENTER;
     if (!map) return;
@@ -141,7 +236,6 @@ export default function Library() {
     <div style={{ padding: "1.5rem", maxWidth: 1200, margin: "0 auto" }}>
       <h2>Library</h2>
 
-      {/* SEARCH BAR */}
       <input
         type="text"
         placeholder="Search saved routes..."
@@ -150,15 +244,100 @@ export default function Library() {
         style={{
           width: "100%",
           padding: "10px 12px",
-          marginBottom: 16,
+          marginBottom: 12,
           borderRadius: 8,
           border: "1px solid #ccc",
           fontSize: 14,
         }}
       />
 
+      <div style={{ marginBottom: 16 }}>
+        <button onClick={() => setShowFilters((current) => !current)}>
+          {showFilters ? "Hide Filters" : "Filter"}
+          {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+        </button>
+      </div>
+
+      {showFilters && (
+        <div
+          style={{
+            border: "1px solid #ddd",
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 16,
+            display: "grid",
+            gap: 10,
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            alignItems: "end",
+          }}
+        >
+          <div>
+            <label
+              htmlFor="route-type-filter"
+              style={{ display: "block", fontSize: 13, marginBottom: 4 }}
+            >
+              Route Type
+            </label>
+            <select
+              id="route-type-filter"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              style={{ width: "100%", padding: 8 }}
+            >
+              <option value="all">All types</option>
+              {routeTypeOptions.map((typeValue) => (
+                <option key={typeValue} value={typeValue}>
+                  {typeValue}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="max-distance-filter"
+              style={{ display: "block", fontSize: 13, marginBottom: 4 }}
+            >
+              Max Distance (mi)
+            </label>
+            <input
+              id="max-distance-filter"
+              type="number"
+              min="0"
+              step="0.1"
+              value={maxDistanceMiles}
+              onChange={(e) => setMaxDistanceMiles(e.target.value)}
+              placeholder="e.g. 1.5"
+              style={{ width: "100%", padding: 8 }}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="max-duration-filter"
+              style={{ display: "block", fontSize: 13, marginBottom: 4 }}
+            >
+              Max Time (min)
+            </label>
+            <input
+              id="max-duration-filter"
+              type="number"
+              min="0"
+              step="1"
+              value={maxDurationMinutes}
+              onChange={(e) => setMaxDurationMinutes(e.target.value)}
+              placeholder="e.g. 20"
+              style={{ width: "100%", padding: 8 }}
+            />
+          </div>
+
+          <div>
+            <button onClick={clearFilters}>Clear Filters</button>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 16 }}>
-        {/* MAP */}
         <div style={{ flex: 1 }}>
           <GoogleMap
             mapContainerStyle={containerStyle}
@@ -174,9 +353,7 @@ export default function Library() {
               mapTypeControl: false,
             }}
           >
-            {directionsResult && (
-              <DirectionsRenderer directions={directionsResult} />
-            )}
+            {directionsResult && <DirectionsRenderer directions={directionsResult} />}
           </GoogleMap>
 
           {(distanceText || durationText) && (
@@ -191,7 +368,6 @@ export default function Library() {
           </button>
         </div>
 
-        {/* ROUTE LIST */}
         <aside
           style={{
             width: 340,
@@ -206,7 +382,7 @@ export default function Library() {
 
           {filteredRoutes.length === 0 && (
             <div style={{ color: "#666", fontSize: 14 }}>
-              No routes match your search.
+              No routes match your search and filters.
             </div>
           )}
 
@@ -218,27 +394,38 @@ export default function Library() {
                 marginBottom: 10,
                 border: "1px solid #eee",
                 borderRadius: 6,
-                background:
-                  route.id === selectedRouteId ? "#f5f7fa" : "#fff",
+                background: route.id === selectedRouteId ? "#f5f7fa" : "#fff",
               }}
             >
               <div style={{ fontWeight: 700 }}>
                 {route.title} {route.type}
               </div>
               <div style={{ fontSize: 13 }}>
-                {route.origin} → {route.destination}
+                {route.origin} -> {route.destination}
               </div>
               <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
-                {route.distance} {route.duration && `• ${route.duration}`}
+                {route.distance} {route.duration && `| ${route.duration}`}
               </div>
 
-              <button
-                onClick={() => loadRoute(route)}
-                disabled={loadingRouteId === route.id}
-                style={{ marginTop: 6 }}
-              >
-                {loadingRouteId === route.id ? "Loading..." : "Load"}
-              </button>
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <button
+                  onClick={() => loadRoute(route)}
+                  disabled={loadingRouteId === route.id}
+                >
+                  {loadingRouteId === route.id ? "Loading..." : "Load"}
+                </button>
+                <button
+                  onClick={() => deleteRoute(route.id)}
+                  disabled={loadingRouteId === route.id}
+                  style={{
+                    border: "1px solid #c62828",
+                    color: "#c62828",
+                    background: "#fff",
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </aside>

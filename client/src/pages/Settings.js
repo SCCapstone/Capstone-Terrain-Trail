@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function Settings() {
+  const navigate = useNavigate();
 
   const garnet = "#73000a";
 
@@ -225,6 +227,11 @@ function Settings() {
       type: "info",
       message: "Changes discarded.",
     });
+  }
+
+  function handleLogout() {
+    localStorage.removeItem("token");
+    navigate("/login");
   }
 
   const hasPasswordChange =
@@ -680,11 +687,26 @@ function Settings() {
                   <div
                     style={{
                       display: "flex",
-                      justifyContent: "flex-end",
+                      justifyContent: "space-between",
                       gap: 12,
                       marginTop: 24,
                     }}
                   >
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      style={{
+                        padding: "10px 18px",
+                        borderRadius: 4,
+                        border: "1px solid #c62828",
+                        background: "#fff",
+                        color: "#c62828",
+                        fontSize: 15,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Log Out
+                    </button>
                     <button
                       type="button"
                       onClick={handleCancel}
@@ -755,3 +777,4 @@ function Settings() {
 }
 
 export default Settings;
+
