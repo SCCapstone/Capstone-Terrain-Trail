@@ -1,4 +1,3 @@
-// testingggg
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import horseshoe from "./horseshoe_now.jpg";
@@ -42,14 +41,14 @@ export default function Login() {
     const cleanEmail = email.trim().toLocaleLowerCase();
     const cleanPassword = password; // not triming the password
 
-    if (!cleanEmail || !cleanEmail) {
-      setMsg("Email and password are required.")
+    if (!cleanEmail || !cleanPassword) {
+      setMsg("Email and password are required.");
       setLoading(false);
       return;
     }
 
     // show "waking up server" message if request takes > 1.2s
-    const slowTimer =  setTimeout(() => {
+    const slowTimer = setTimeout(() => {
       if (mountedRef.current) setSlow(true);
     }, 1200);
 
@@ -75,18 +74,15 @@ export default function Login() {
       if (res.ok) {
         localStorage.setItem("token", data.token || "");
         navigate("/app/explore");
-      } 
-      else {
+      } else {
         setMsg(data.message || "Invalid email or password");
       }
-    } 
-    catch (err) {
+    } catch (err) {
       if (!mountedRef.current) return;
       setMsg(
         "Network error. If this is the first request, the server may be waking up (Render free tier). Try again in a few seconds."
       );
-    } 
-    finally {
+    } finally {
       clearTimeout(slowTimer);
       if (mountedRef.current) {
         setLoading(false);
@@ -171,7 +167,7 @@ export default function Login() {
           >
             Login
           </h2>
-          
+
           {/* noValidate prevents browser “Please enter an email address.” tooltips */}
           <form
             onSubmit={handleSubmit}
@@ -182,7 +178,7 @@ export default function Login() {
               type="email"
               placeholder="Email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)} 
+              onChange={(e) => setEmail(e.target.value)}
               required
               style={{
                 padding: "12px 14px",
@@ -192,7 +188,8 @@ export default function Login() {
                 outline: "none",
               }}
             />
-            <div style={{ display: "flex", gap: 8}}>
+
+            <div style={{ display: "flex", gap: 8 }}>
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
@@ -243,14 +240,34 @@ export default function Login() {
             </button>
 
             {slow && !msg && (
-              <div style={{ color: "#444", fontSize: 14}}>
-                Waking up server… (Render free tier can take ~10–20s on the first request)
+              <div style={{ color: "#444", fontSize: 14 }}>
+                Waking up server… (Render free tier can take ~10–20s on the first
+                request)
               </div>
             )}
 
-            {msg && (
-              <div style={{ color: "#b00020", fontSize: 14 }}>{msg}</div>
-            )}
+            {msg && <div style={{ color: "#b00020", fontSize: 14 }}>{msg}</div>}
+
+            {/* Back / Sign up row */}
+            <div style={{ marginTop: 8, fontSize: 14, color: "#333" }}>
+              Don't have an account? Sign up here:
+              <button
+                type="button"
+                onClick={() => navigate("/")}
+                style={{
+                  marginLeft: 8,
+                  padding: "6px 10px",
+                  borderRadius: 4,
+                  border: `1px solid ${garnet}`,
+                  background: "#fff",
+                  color: garnet,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                Sign Up
+              </button>
+            </div>
           </form>
         </div>
       </main>
