@@ -92,6 +92,7 @@ app.post("/api/signup", async (req, res) => {
     if (!email || !password) return res.status(400).json({ message: "Email and password required" });
     if (password.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters" });
 
+    //Check for unique username and email
     if (username) {
       const existingUser = await User.findOne({ username });
       if (existingUser) return res.status(409).json({message: "Username already in use"});
