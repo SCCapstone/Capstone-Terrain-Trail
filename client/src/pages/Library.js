@@ -11,28 +11,23 @@ const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 const LOCAL_STORAGE_KEY = "savedRoutes_v1";
 
 function travelModeFromType(type) {
-  // UPDATED: proper emoji mapping + wheelchair support (no mojibake)
   if (!google || !google.maps) return null;
 
-  // bike-like modes
   if (type === "🚲" || type === "🛴" || type === "🛹") {
     return google.maps.TravelMode.BICYCLING;
   }
 
-  // driving
   if (type === "🚗") {
     return google.maps.TravelMode.DRIVING;
   }
 
-  // wheelchair support: treat as walking (Google Maps doesn't have a dedicated wheelchair travelMode;
-  // accessibility-aware routing requires Directions API parameters or separate handling)
   if (type === "♿") {
     return google.maps.TravelMode.WALKING;
   }
 
-  // default to walking
   return google.maps.TravelMode.WALKING;
 }
+
 
 function parseDistanceToMiles(distanceText) {
   if (!distanceText) return null;
@@ -405,7 +400,7 @@ export default function Library() {
                 {route.title} {route.type}
               </div>
               <div style={{ fontSize: 13 }}>
-                {route.origin} -> {route.destination}
+                {route.origin} {'→'} {route.destination}
               </div>
               <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
                 {route.distance} {route.duration && `| ${route.duration}`}
