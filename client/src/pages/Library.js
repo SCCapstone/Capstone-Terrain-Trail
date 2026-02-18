@@ -10,32 +10,24 @@ const containerStyle = {
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 const LOCAL_STORAGE_KEY = "savedRoutes_v1";
 
-const FALLBACK_ROUTES = [
-  {
-    id: "r1",
-    title: "Swearingen to LeConte",
-    origin: "301 Main St, Columbia, SC 29208",
-    destination: "1523 Greene St, Columbia, SC 29225",
-    distance: ".8 mi",
-    duration: "19 mins",
-    type: "ðŸ‘£",
-  },
-  {
-    id: "r2",
-    title: "Swearingen to LeConte",
-    origin: "301 Main St, Columbia, SC 29208",
-    destination: "1523 Greene St, Columbia, SC 29225",
-    distance: ".7 mi",
-    duration: "7 mins",
-    type: "ðŸš²",
-  },
-];
-
 function travelModeFromType(type) {
-  if (type === "ðŸš²") return google.maps.TravelMode.BICYCLING;
-  if (type === "ðŸš—") return google.maps.TravelMode.DRIVING;
+  if (!google || !google.maps) return null;
+
+  if (type === "🚲" || type === "🛴" || type === "🛹") {
+    return google.maps.TravelMode.BICYCLING;
+  }
+
+  if (type === "🚗") {
+    return google.maps.TravelMode.DRIVING;
+  }
+
+  if (type === "♿") {
+    return google.maps.TravelMode.WALKING;
+  }
+
   return google.maps.TravelMode.WALKING;
 }
+
 
 function parseDistanceToMiles(distanceText) {
   if (!distanceText) return null;
@@ -44,6 +36,10 @@ function parseDistanceToMiles(distanceText) {
   const value = parseFloat(normalized);
   if (Number.isNaN(value)) return null;
 
+  if (/\bkm\b/.test(normalized)) return value * 0.621371;
+  if (/\bmi\b/.test(normalized)) return value; // already miles
+  if (/\bft\b/.test(normalized)) return value / 5280;
+  if (/\bm\b/.test(normalized) && !/\bkm\b/.test(normalized)) return value * 0.000621371; // meters -> miles
   if (normalized.includes("km")) return value * 0.621371;
   if (normalized.includes("ft")) return value / 5280;
   if (/\bm\b/.test(normalized)) return value * 0.000621371;
@@ -79,6 +75,7 @@ export default function Library() {
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
     libraries: ["places", "maps"],
+    version: "weekly",
   });
 
   const mapRef = useRef(null);
@@ -109,7 +106,8 @@ export default function Library() {
     } catch (e) {
       console.warn("Failed to load saved routes", e);
     }
-    return FALLBACK_ROUTES;
+    // NO FALLBACK ROUTES: return empty array if nothing in localStorage
+    return [];
   });
 
   useEffect(() => {
@@ -182,6 +180,7 @@ export default function Library() {
         origin: route.origin,
         destination: route.destination,
         travelMode: travelModeFromType(route.type),
+        unitSystem: google.maps.UnitSystem.IMPERIAL,
       });
 
       setDirectionsResult(result);
@@ -401,7 +400,7 @@ export default function Library() {
                 {route.title} {route.type}
               </div>
               <div style={{ fontSize: 13 }}>
-                {route.origin} -> {route.destination}
+                {route.origin} {'→'} {route.destination}
               </div>
               <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
                 {route.distance} {route.duration && `| ${route.duration}`}

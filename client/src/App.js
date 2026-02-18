@@ -8,6 +8,7 @@ import Settings from "./pages/Settings";
 import Library from "./pages/Library";
 import SignUp from "./pages/SignUp";
 import Login from "./pages/Login";
+import CompletedTrail from "./pages/CompletedTrail";
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <Route path="explore" element={<Explore />} />
           <Route path="library" element={<Library />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="completed/:id" element={<CompletedTrail />} />
         </Route>
 
         {/*404 */}

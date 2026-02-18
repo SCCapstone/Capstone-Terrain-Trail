@@ -1,198 +1,176 @@
-// npm install @react-google-maps/api
-/* global google */
+// src/pages/Explore.js
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { GoogleMap, useJsApiLoader } from "@react-google-maps/api";
 
-import React, { useEffect, useRef, useState } from "react";
-import { GoogleMap, useJsApiLoader, DirectionsRenderer } from "@react-google-maps/api";
-
-const containerStyle = {
+// Map container style
+const mapContainerStyle = {
   width: "100%",
-  height: "600px",
-  borderRadius: "12px",
-  boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+  height: "450px",
 };
 
-const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 }; // University of South Carolina
+// Default center (Columbia, SC) — adjust if you prefer
+const DEFAULT_CENTER = { lat: 34.0007, lng: -81.0348 };
 
-export default function CreateTrail() {
-  // load the Maps JS API and the places library for autocomplete
+// localStorage key used by CreateTrail / CompletedTrail
+const LOCAL_STORAGE_KEY = "savedRoutes_v1";
+
+/* Helper to read saved routes (shared single source of truth) */
+function readSavedRoutesFromStorage() {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    console.error("readSavedRoutesFromStorage error", e);
+    return [];
+  }
+}
+
+export default function Explore() {
+  const navigate = useNavigate();
+
+  // Google Maps loader (uses REACT_APP_GOOGLE_MAPS_API_KEY)
   const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
-    libraries: ["places", "maps"],
-  });
+        googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
+        libraries: ["places", "maps"],
+        version: "weekly",
+});
 
-  const mapRef = useRef(null);
-  const originInputRef = useRef(null);
-  const destInputRef = useRef(null);
-  const originAutocompleteRef = useRef(null);
-  const destAutocompleteRef = useRef(null);
 
-  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
-  const [map, setMap] = useState(null);
+  const [mapRef, setMapRef] = useState(null);
+  const mapRefInternal = useRef(null);
 
-  const [directionsResult, setDirectionsResult] = useState(null);
-  const [distanceText, setDistanceText] = useState("");
-  const [durationText, setDurationText] = useState("");
-  // store the origin lat/lng so we can recenter to it
-  const [originPosition, setOriginPosition] = useState(null);
+  const onMapLoad = useCallback((map) => {
+    mapRefInternal.current = map;
+    setMapRef(map);
+  }, []);
 
-  useEffect(() => {
-    if (!isLoaded) return;
+  // Public routes state
+  const [publicRoutes, setPublicRoutes] = useState([]);
+  const [loadingPublic, setLoadingPublic] = useState(true);
 
-    // Initialize Autocomplete on the two input elements (if they exist)
-    if (originInputRef.current && !originAutocompleteRef.current) {
-      originAutocompleteRef.current = new google.maps.places.Autocomplete(originInputRef.current, { fields: ["formatted_address", "geometry", "name"] });
-      // if user selects a place from autocomplete, capture its location so recenter can use it
-      originAutocompleteRef.current.addListener("place_changed", () => {
-        const place = originAutocompleteRef.current.getPlace();
-        if (place && place.geometry && place.geometry.location) {
-          const loc = place.geometry.location;
-          setOriginPosition({ lat: loc.lat(), lng: loc.lng() });
-        }
-      });
-    }
-    if (destInputRef.current && !destAutocompleteRef.current) {
-      destAutocompleteRef.current = new google.maps.places.Autocomplete(destInputRef.current, { fields: ["formatted_address", "geometry", "name"] });
-    }
-  }, [isLoaded]);
-
-  async function calculateRoute() {
-    const originVal = originInputRef.current?.value?.trim();
-    const destVal = destInputRef.current?.value?.trim();
-    if (!originVal || !destVal) {
-      alert("Please enter both origin and destination.");
-      return;
-    }
-
-    // Use DirectionsService
-    const directionsService = new google.maps.DirectionsService();
+  // Load public routes from localStorage
+  const loadPublicRoutes = useCallback(() => {
     try {
-      const results = await directionsService.route({
-        origin: originVal,
-        destination: destVal,
-        travelMode: google.maps.TravelMode.DRIVING, // change to WALKING/BICYCLING if desired
-      });
+      const all = readSavedRoutesFromStorage();
+      const pubs = all.filter((r) => Boolean(r.public));
+      setPublicRoutes(pubs);
+    } catch (e) {
+      console.error("loadPublicRoutes error", e);
+      setPublicRoutes([]);
+    } finally {
+      setLoadingPublic(false);
+    }
+  }, []);
 
-      setDirectionsResult(results);
-      const leg = results.routes[0].legs[0];
-      setDistanceText(leg.distance?.text || "");
-      setDurationText(leg.duration?.text || "");
+  // load once and on storage changes (other tabs)
+  useEffect(() => {
+    loadPublicRoutes();
+    function onStorage() {
+      loadPublicRoutes();
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [loadPublicRoutes]);
 
-      // center map on origin (start_location)
-      const originLoc = leg.start_location;
-      const lat = originLoc.lat();
-      const lng = originLoc.lng();
-      setOriginPosition({ lat, lng }); // save origin for recenter button
-      setMapCenter({ lat, lng });
-      map?.panTo(originLoc);
-    } catch (err) {
-      console.error("Directions error:", err);
-      alert("Could not calculate route. Check console for details.");
+  // helper: open completed detail in-app
+  function openCompleted(id) {
+    navigate(`/app/completed/${id}`);
+  }
+
+  // helper: copy link to clipboard
+  function copyCompletedLink(id) {
+    const link = `${window.location.origin}/app/completed/${id}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard
+        .writeText(link)
+        .then(() => window.alert("Link copied"))
+        .catch(() => window.alert("Copy failed"));
+    } else {
+      // fallback
+      window.prompt("Copy this link:", link);
     }
   }
-
-  function clearRoute() {
-    setDirectionsResult(null);
-    setDistanceText("");
-    setDurationText("");
-    if (originInputRef.current) originInputRef.current.value = "";
-    if (destInputRef.current) destInputRef.current.value = "";
-    if (map) {
-      map.panTo(DEFAULT_CENTER);
-      map.setZoom(14);
-    }
-    // optional: clear saved origin when clearing
-    setOriginPosition(null);
-  }
-
-  function recenterToOrigin() {
-    const target = originPosition || DEFAULT_CENTER;
-    if (!map) return;
-    map.panTo(target);
-    // set a friendly zoom level when recentering
-    map.setZoom(14);
-    setMapCenter(target);
-  }
-
-  // if (loadError) return <div style={{ padding: 16 }}>Error loading Google Maps API</div>;
-  if (!isLoaded) return <div style={{ padding: 16 }}>Loading map...</div>;
 
   return (
-    <div style={{ padding: "1.5rem", maxWidth: 1200, margin: "0 auto" }}>
-      <h2 style={{ marginBottom: 12 }}>Explore</h2>
+    <div style={{ padding: 20, maxWidth: 1200, margin: "0 auto" }}>
+      <h1 style={{ marginTop: 0 }}>Explore — Public Trails</h1>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-        <input
-          ref={originInputRef}
-          placeholder="Origin (address or place)"
-          style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #ccc", minWidth: 240 }}
-        />
-        <input
-          ref={destInputRef}
-          placeholder="Destination (address or place)"
-          style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #ccc", minWidth: 240 }}
-        />
-        <button onClick={calculateRoute} style={{ padding: "8px 12px", borderRadius: 6, background: "#7b0f12", color: "#fff", border: "none", cursor: "pointer" }}>
-          Calculate Route
-        </button>
-        <button onClick={clearRoute} style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #888", background: "#fff", cursor: "pointer" }}>
-          Clear
-        </button>
-
-        <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ fontSize: 14 }}><strong>Distance:</strong> {distanceText || "—"}</div>
-          <div style={{ fontSize: 14 }}><strong>Duration:</strong> {durationText || "—"}</div>
+      <section style={{ marginBottom: 18 }}>
+        <div style={{ border: "1px solid #e6e6e6", borderRadius: 8, overflow: "hidden" }}>
+          {isLoaded ? (
+            <GoogleMap
+              mapContainerStyle={mapContainerStyle}
+              center={DEFAULT_CENTER}
+              zoom={13}
+              onLoad={onMapLoad}
+            />
+          ) : (
+            <div style={{ width: "100%", height: 450, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              Loading map…
+            </div>
+          )}
         </div>
-      </div>
+        <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+          <button
+            onClick={() => {
+              // recenter
+              if (mapRefInternal.current) {
+                mapRefInternal.current.panTo(DEFAULT_CENTER);
+                mapRefInternal.current.setZoom(13);
+              }
+            }}
+          >
+            Recenter
+          </button>
+          <button onClick={() => { loadPublicRoutes(); }}>Refresh public list</button>
+        </div>
+      </section>
 
-      <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", boxShadow: "0 6px 20px rgba(0,0,0,0.08)" }}>
-        <GoogleMap
-          mapContainerStyle={containerStyle}
-          center={mapCenter}
-          zoom={14}
-          onLoad={(m) => {
-            setMap(m);
-            mapRef.current = m;
-          }}
-          options={{
-            fullscreenControl: false,
-            streetViewControl: false,
-            mapTypeControl: false,
-            clickableIcons: false,
-          }}
-        >
-          {directionsResult && <DirectionsRenderer directions={directionsResult} />}
-        </GoogleMap>
+      <section>
+        <h2 style={{ marginBottom: 12 }}>Public Trails</h2>
 
-        {/* Recenter button in bottom-left of map */}
-        <button
-          onClick={recenterToOrigin}
-          aria-label="Recenter to origin"
-          title="Recenter to origin"
-          style={{
-            position: "absolute",
-            left: 16,
-            bottom: 16,
-            zIndex: 1000,
-            padding: "10px 12px",
-            borderRadius: 8,
-            border: "none",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
-            background: "#fff",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden>
-            <path d="M8 3a5 5 0 1 0 0 10A5 5 0 0 0 8 3zM1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8z"/>
-            <path d="M8 5.5a.5.5 0 0 1 .5.5v2.25l1.5.875a.5.5 0 0 1-.5.866L8 8V6a.5.5 0 0 1 .5-.5z"/>
-          </svg>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Recenter</span>
-        </button>
-      </div>
+        {loadingPublic ? (
+          <div>Loading public trails…</div>
+        ) : publicRoutes.length === 0 ? (
+          <div>No public trails yet. When users mark a route public it will appear here.</div>
+        ) : (
+          <div style={{ display: "grid", gap: 12 }}>
+            {publicRoutes.map((r) => (
+              <div key={r.id} style={{ border: "1px solid #eee", padding: 12, borderRadius: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <strong style={{ display: "block", fontSize: 16 }}>
+                      {r.title || `${r.origin} → ${r.destination}`}
+                    </strong>
+                    <div style={{ fontSize: 13, color: "#555", marginTop: 6 }}>
+                      {r.origin} → {r.destination}
+                      <span style={{ marginLeft: 8 }}>• {r.distance || "—"}</span>
+                      <span style={{ marginLeft: 8 }}>• ETA: {r.duration || "—"}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                    <button onClick={() => openCompleted(r.id)}>View</button>
+                    <button onClick={() => copyCompletedLink(r.id)}>Copy link</button>
+                  </div>
+                </div>
+
+                {r.review && (
+                  <div style={{ marginTop: 10, fontSize: 14 }}>
+                    <div><strong>Rating:</strong> {r.review.stars}/5</div>
+                    <div><strong>Terrain:</strong> {r.review.terrain}/10</div>
+                    {r.review.comment && <div style={{ marginTop: 8 }}>{r.review.comment}</div>}
+                    <div style={{ marginTop: 8, color: "#777", fontSize: 12 }}>
+                      Updated: {new Date(r.review.updatedAt || r.updatedAt || r.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
-
