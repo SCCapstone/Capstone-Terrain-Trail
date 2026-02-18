@@ -30,10 +30,10 @@ export default function Explore() {
   const navigate = useNavigate();
 
   // Google Maps loader (uses REACT_APP_GOOGLE_MAPS_API_KEY)
-  const { isLoaded } = useJsApiLoader({
-  googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "",
-  libraries: ["places", "maps"],
-  version: "weekly",
+  const { isLoaded, loadError } = useJsApiLoader({
+        googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
+        libraries: ["places", "maps"],
+        version: "weekly",
 });
 
 

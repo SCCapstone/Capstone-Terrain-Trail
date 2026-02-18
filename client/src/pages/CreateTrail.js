@@ -64,10 +64,10 @@ function getEmojiMarkerIcon(emoji = "👣", size = 40) {
 }
 
 export default function CreateTrail() {
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "",
-    libraries: ["places", "maps"],
-    version: "weekly",
+  const { isLoaded, loadError } = useJsApiLoader({
+      googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
+      libraries: ["places", "maps"],
+      version: "weekly",
   });
 
   const originInputRef = useRef(null);
@@ -115,6 +115,23 @@ export default function CreateTrail() {
   }
 }, [map, routeType]);
 
+// If the user navigates away while tracking, watchPosition and the interval can keep running
+useEffect(() => {
+  return () => {
+    // cleanup geolocation watcher
+    if (watchIdRef.current != null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    // cleanup timer
+    if (elapsedIntervalRef.current) {
+      clearInterval(elapsedIntervalRef.current);
+      elapsedIntervalRef.current = null;
+    }
+  };
+}, []);
+
+
 
   function calculateCustomDurationFromWalking(walkingSeconds, multiplier) {
     if (!walkingSeconds || !multiplier) return "";
@@ -124,6 +141,10 @@ export default function CreateTrail() {
   }
 
   async function calculateRoute(typeArg) {
+        if (!isLoaded || !google?.maps) {
+      alert("Map not ready yet — please wait a moment and try again.");
+      return;
+    }
     const originVal = originInputRef.current?.value?.trim();
     const destVal = destInputRef.current?.value?.trim();
     if (!originVal || !destVal) return;
@@ -137,6 +158,7 @@ export default function CreateTrail() {
         origin: originVal,
         destination: destVal,
         travelMode,
+        unitSystem: google.maps.UnitSystem.IMPERIAL,
       };
       const result = await directionsService.route(request);
       setDirectionsResult(result);
@@ -300,7 +322,7 @@ export default function CreateTrail() {
           title,
           origin: originVal || "",
           destination: destVal || "",
-          distance: `${(trackedDistanceMeters / 1000).toFixed(2)} km`,
+          distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
           duration: `${minutes} min`,
           type: routeType || "👣",
           public: false,
@@ -514,7 +536,7 @@ export default function CreateTrail() {
         {isTracking ? (isPaused ? "Paused" : "Active") : "Stopped"} &nbsp;|&nbsp;
         <strong>Elapsed:</strong> {elapsedDisplay} &nbsp;|&nbsp;
         <strong>Traveled:</strong>{" "}
-        {trackedDistanceMeters ? `${(trackedDistanceMeters / 1000).toFixed(2)} km` : "—"}
+        {trackedDistanceMeters ? `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi` : "—"}
       </div>
 
       <div style={{ position: "relative" }}>
