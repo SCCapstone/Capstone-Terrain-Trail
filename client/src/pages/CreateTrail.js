@@ -9,7 +9,6 @@ import {
   Marker,
 } from "@react-google-maps/api";
 import { useNavigate } from "react-router-dom";
-import "./CreateTrail.css";
 import "../components/CreateTrail.css";
 
 const containerStyle = {
