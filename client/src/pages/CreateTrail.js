@@ -9,9 +9,13 @@ import {
   Marker,
 } from "@react-google-maps/api";
 import { useNavigate } from "react-router-dom";
+import "./CreateTrail.css";
 import "../components/CreateTrail.css";
 
-const containerStyle = { width: "100%", height: "600px" };
+const containerStyle = {
+  width: "100%",
+  height: "100%", 
+};
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 
 function travelModeFromType(type) {
@@ -649,66 +653,64 @@ useEffect(() => {
         {trackedDistanceMeters ? `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi` : "—"}
       </div>
 
-      <div className="map-container">
-        <GoogleMap
-          mapContainerStyle={containerStyle}
-          center={mapCenter}
-          zoom={14}
-          onLoad={setMap}
-          options={{
-            styles: isDarkMode ? darkMapStyles : undefined,
-            backgroundColor: isDarkMode ? "#111" : undefined,
-            streetViewControl: false,
-            fullscreenControl: true,
-            mapTypeControl: true,
-          }}
-        >
-          {directionsResult && <DirectionsRenderer directions={directionsResult} />}
-          {trackedPath && trackedPath.length > 1 && (
-            <Polyline path={trackedPath} options={{ strokeWeight: 4 }} />
-          )}
+   
+<div className="map-container">
+  <GoogleMap
+    mapContainerStyle={containerStyle}
+    center={mapCenter}
+    zoom={14}
+    onLoad={setMap}
+  >
+    {directionsResult && <DirectionsRenderer directions={directionsResult} />}
+    {trackedPath && trackedPath.length > 1 && (
+      <Polyline path={trackedPath} options={{ strokeWeight: 4 }} />
+    )}
+    {lastPos && (
+      <Marker
+        position={lastPos}
+        icon={userIcon}
+        optimized={false}
+      />
+    )}
+  </GoogleMap>
 
-          {/* Moving user marker rendered inside the map */}
-          {lastPos && (
-            <Marker
-              position={lastPos}
-              icon={userIcon}
-              // prevent marker optimization to ensure it updates smoothly
-              optimized={false}
-            />
-          )}
-        </GoogleMap>
+  {/* Floating Start / Pause / Stop Controls (INSIDE map via position on .map-container) */}
+  <div className="floating-controls">
+    {!isTracking && (
+      <button
+        className="map-btn"
+        onClick={() => {
+          const originVal = originInputRef.current?.value?.trim();
+          const destVal = destInputRef.current?.value?.trim();
+          if (!directionsResult && originVal && destVal) {
+            calculateRoute().then(beginTracking).catch(beginTracking);
+          } else {
+            beginTracking();
+          }
+        }}
+      >
+        Start
+      </button>
+    )}
 
-        {/* Floating Start / Pause / Stop Controls (moved left a bit from right edge so full screen shows) */}
-        <div className="floating-controls">
-          {!isTracking && (
-            <button
-              onClick={() => {
-                const originVal = originInputRef.current?.value?.trim();
-                const destVal = destInputRef.current?.value?.trim();
-                if (!directionsResult && originVal && destVal) {
-                  calculateRoute().then(beginTracking).catch(beginTracking);
-                } else {
-                  beginTracking();
-                }
-              }}
-            >
-              Start
-            </button>
-          )}
+    {isTracking && !isPaused && (
+      <button className="map-btn" onClick={pauseTracking}>Pause</button>
+    )}
 
-          {isTracking && !isPaused && <button onClick={pauseTracking}>Pause</button>}
+    {isTracking && isPaused && (
+      <button className="map-btn" onClick={resumeTracking}>Resume</button>
+    )}
 
-          {isTracking && isPaused && <button onClick={resumeTracking}>Resume</button>}
+    {isTracking && (
+      <button className="map-btn" onClick={() => stopTracking({ offerSave: true })}>
+        Stop
+      </button>
+    )}
+  </div>
 
-          {isTracking && <button onClick={() => stopTracking({ offerSave: true })}>Stop</button>}
-        </div>
-
-        {/* Recenter button (bottom left) */}
-        <button className="recenter-btn" onClick={recenterToOrigin}>
-          Recenter
-        </button>
-      </div>
+  {/* Recenter button pinned bottom-left inside the map */}
+  <button className="map-btn recenter-btn" onClick={recenterToOrigin}>Recenter</button>
+</div>
     </div>
   );
 }
