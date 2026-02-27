@@ -1,14 +1,30 @@
-/* base padding for desktop (safe even if you keep inline styles) */
-.create-trail-container {
-  padding: 1.5rem;
+/* Origin input + location button wrapper */
+.origin-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-/* map wrapper is the positioning context */
-.map-container {
-  position: relative; /* must be present */
+/* Use My Location button */
+.use-location-btn {
+  padding: 8px;
+  font-size: 14px;
 }
 
-/* ===== Mobile-only overrides ===== */
+
+.use-location-btn:hover {
+  background: #e8e8e8;
+}
+
+.form-input {
+  padding: 8px;
+  width: 260px;   /* same width for both */
+  box-sizing: border-box;
+}
+
+
+
+/* CreateTrail.css — mobile-only overrides (does NOT change desktop) */
 @media (max-width: 640px) {
   /* outer wrapper padding */
   .create-trail-container {
@@ -174,3 +190,5 @@
     bottom: 8px !important;
   }
 }
+
+
