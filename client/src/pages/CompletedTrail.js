@@ -178,10 +178,6 @@ function saveChanges() {
         <div className="completed-trail-sidebar">
 
           <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
-            <button onClick={() => setEditing(true)} aria-label="Edit route">
-              Edit
-            </button>
-
             <button onClick={saveChanges} aria-label="Save route">
               Save
             </button>
