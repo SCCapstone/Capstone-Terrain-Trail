@@ -11,15 +11,16 @@ import {
 import { useNavigate } from "react-router-dom";
 import "../components/CreateTrail.css";
 
+const GOOGLE_MAPS_LIBRARIES = ["places"];
 const containerStyle = { width: "100%", height: "600px" };
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 
 function travelModeFromType(type) {
   if (!window.google?.maps) return null;
-  if (type === "🚗") return google.maps.TravelMode.DRIVING;
-  if (type === "🚲") return google.maps.TravelMode.BICYCLING;
-  if (type === "🛴" || type === "🛹") return google.maps.TravelMode.BICYCLING;
-  return google.maps.TravelMode.WALKING;
+  if (type === "🚗") return window.google.maps.TravelMode.DRIVING;
+  if (type === "🚲") return window.google.maps.TravelMode.BICYCLING;
+  if (type === "🛴" || type === "🛹") return window.google.maps.TravelMode.BICYCLING;
+  return window.google.maps.TravelMode.WALKING;
 }
 
 function haversineDistanceMeters(a, b) {
@@ -67,9 +68,9 @@ function getEmojiMarkerIcon(emoji = "👣", size = 40) {
 
 export default function CreateTrail() {
   const { isLoaded, loadError } = useJsApiLoader({
-      googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
-      libraries: ["places", "maps"],
-      version: "weekly",
+    id: "google-map-script",
+    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
   
   const navigate = useNavigate();
@@ -81,7 +82,7 @@ export default function CreateTrail() {
   const watchIdRef = useRef(null);
 
   const [map, setMap] = useState(null);
-  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
+  const [mapCenter] = useState(DEFAULT_CENTER);
 
   const [directionsResult, setDirectionsResult] = useState(null);
   const [distanceText, setDistanceText] = useState("");
@@ -159,7 +160,7 @@ export default function CreateTrail() {
   if (!map || !window.google?.maps) return;
   // If routeType is driving (🚗) use roadmap; otherwise use terrain
   try {
-    const mapType = routeType === "🚗" ? google.maps.MapTypeId.ROADMAP : google.maps.MapTypeId.TERRAIN;
+    const mapType = routeType === "🚗" ? window.google.maps.MapTypeId.ROADMAP : window.google.maps.MapTypeId.TERRAIN;
     map.setMapTypeId(mapType);
   } catch (e) {
     // google may be undefined briefly; ignore
@@ -183,8 +184,6 @@ useEffect(() => {
   };
 }, []);
 
-
-
   function calculateCustomDurationFromWalking(walkingSeconds, multiplier) {
     if (!walkingSeconds || !multiplier) return "";
     const runningSeconds = walkingSeconds / multiplier;
@@ -206,19 +205,19 @@ useEffect(() => {
     if (!travelMode) return;
 
     try {
-      const directionsService = new google.maps.DirectionsService();
+      const directionsService = new window.google.maps.DirectionsService();
       const request = {
         origin: originVal,
         destination: destVal,
         travelMode,
-        unitSystem: google.maps.UnitSystem.IMPERIAL,
+        unitSystem: window.google.maps.UnitSystem.IMPERIAL,
       };
       const result = await directionsService.route(request);
       setDirectionsResult(result);
       const leg = result.routes[0].legs[0];
       setDistanceText(leg.distance.text);
 
-      if (travelMode === google.maps.TravelMode.DRIVING) {
+      if (travelMode === window.google.maps.TravelMode.DRIVING) {
         setDurationText(leg.duration.text);
       } else if (usedType === "🚲" || usedType === "👣") {
         setDurationText(leg.duration.text);
@@ -402,7 +401,7 @@ useEffect(() => {
     if (!isLoaded || !window.google?.maps?.places) return;
 
     if (originInputRef.current && !originAutocompleteRef.current) {
-      originAutocompleteRef.current = new google.maps.places.Autocomplete(originInputRef.current, {
+      originAutocompleteRef.current = new window.google.maps.places.Autocomplete(originInputRef.current, {
         fields: ["formatted_address", "geometry"],
       });
       originAutocompleteRef.current.addListener("place_changed", () => {
@@ -415,7 +414,7 @@ useEffect(() => {
     }
 
     if (destInputRef.current && !destAutocompleteRef.current) {
-      destAutocompleteRef.current = new google.maps.places.Autocomplete(destInputRef.current, {
+      destAutocompleteRef.current = new window.google.maps.places.Autocomplete(destInputRef.current, {
         fields: ["formatted_address"],
       });
     }
@@ -466,7 +465,18 @@ useEffect(() => {
       return;
     }
 
+    if (!directionsResult) {
+      window.alert("Please calculate a route before saving.");
+      return;
+    }
+
     const title = (routeTitle || "").trim() || `${originVal} → ${destVal}`;
+
+    // extract geometry from the directions result for explore hover preview
+    const route = directionsResult.routes?.[0];
+    const encodedPolyline = route?.overview_polyline ?? null;
+    const rawBounds = route?.bounds ?? null;
+    const bounds = rawBounds ? { north: rawBounds.getNorthEast().lat(), east:  rawBounds.getNorthEast().lng(), south: rawBounds.getSouthWest().lat(), west:  rawBounds.getSouthWest().lng() } : null;
 
     const newRoute = {
       id: `r_${Date.now()}`,
@@ -479,6 +489,8 @@ useEffect(() => {
       public: false,
       review: null,
       createdAt: new Date().toISOString(),
+      encodedPolyline, // used by Explore hover preview 
+      bounds, // used by Explore fitBounds on hover
     };
 
     try {
@@ -495,7 +507,6 @@ useEffect(() => {
       setSaving(false);
     }
   }
-
 
   if (loadError) {
     return (
