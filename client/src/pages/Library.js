@@ -91,13 +91,16 @@ export default function Library() {
     distance: "",
     duration: "",
     type: "",
+    isUSC: false,
   });
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState("all");
+  const [filterUSC, setFilterUSC] = useState("all");
   const [maxDistanceMiles, setMaxDistanceMiles] = useState("");
   const [maxDurationMinutes, setMaxDurationMinutes] = useState("");
+ 
 
   const [savedRoutes, setSavedRoutes] = useState(() => {
     try {
@@ -138,6 +141,7 @@ export default function Library() {
 
   const activeFilterCount =
     (filterType !== "all" ? 1 : 0) +
+    (filterUSC !== "all" ? 1 : 0) +
     (hasDistanceFilter ? 1 : 0) +
     (hasDurationFilter ? 1 : 0);
 
@@ -145,6 +149,11 @@ export default function Library() {
     const title = String(route.title || "").toLowerCase();
     const origin = String(route.origin || "").toLowerCase();
     const destination = String(route.destination || "").toLowerCase();
+
+    const routeTags = Array.isArray(route.tags) ? route.tags : [];
+    const matchesUSC =
+      filterUSC === "all" ||
+      (filterUSC === "usc" && routeTags.includes("USC"));
 
     const matchesSearch =
       !normalizedQuery ||
@@ -164,13 +173,14 @@ export default function Library() {
       !hasDurationFilter ||
       (routeDurationMinutes !== null && routeDurationMinutes <= maxDurationValue);
 
-    return matchesSearch && matchesType && matchesDistance && matchesDuration;
+      return matchesSearch && matchesType && matchesUSC && matchesDistance && matchesDuration;
   });
 
   function clearFilters() {
     setFilterType("all");
     setMaxDistanceMiles("");
     setMaxDurationMinutes("");
+    setFilterUSC("all");
   }
 
   async function loadRoute(route) {
@@ -250,6 +260,7 @@ export default function Library() {
       distance: route.distance || "",
       duration: route.duration || "",
       type: route.type || "",
+      isUSC: Array.isArray(route.tags) && route.tags.includes("USC"),
     });
   }
 
@@ -262,6 +273,7 @@ export default function Library() {
       distance: "",
       duration: "",
       type: "",
+      isUSC: false,
     });
   }
 
@@ -286,6 +298,7 @@ export default function Library() {
       distance: editForm.distance.trim(),
       duration: editForm.duration.trim(),
       type: editForm.type.trim(),
+      tags: editForm.isUSC ? ["USC"] : [],
     };
 
     setSavedRoutes((prevRoutes) =>
@@ -383,6 +396,30 @@ export default function Library() {
                   {typeValue}
                 </option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor="usc-filter"
+              style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--muted)" }}
+            >
+              USC Tag
+            </label>
+            <select
+              id="usc-filter"
+              value={filterUSC}
+              onChange={(e) => setFilterUSC(e.target.value)}
+              style={{
+                width: "100%",
+                padding: 8,
+                border: "1px solid var(--border)",
+                background: "var(--surface-2)",
+                color: "var(--text)",
+                borderRadius: 6,
+              }}
+            >
+              <option value="all">All routes</option>
+              <option value="usc">USC only</option>
             </select>
           </div>
 
@@ -634,6 +671,27 @@ export default function Library() {
                     />
                   </div>
 
+                  <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          marginTop: 8,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={editForm.isUSC}
+                          onChange={(e) =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              isUSC: e.target.checked,
+                            }))
+                          }
+                        />
+                        at USC
+                      </label>
+
                   <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                     <button onClick={() => saveEditedRoute(route.id)}>Save</button>
                     <button onClick={cancelEditingRoute}>Cancel</button>
@@ -643,6 +701,20 @@ export default function Library() {
                 <>
                   <div style={{ fontWeight: 700 }}>
                     {route.title} {route.type}
+                    {Array.isArray(route.tags) && route.tags.includes("USC") && (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: 12,
+                        padding: "2px 6px",
+                        borderRadius: 999,
+                        background: "rgba(115, 0, 10, 0.12)",
+                        color: "var(--brand)",
+                      }}
+                    >
+                      USC
+                    </span>
+                  )}
                   </div>
                   <div style={{ fontSize: 13 }}>
                     {route.origin} {"->"} {route.destination}
