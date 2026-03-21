@@ -85,6 +85,7 @@ export default function CreateTrail() {
 
   const [routeTitle, setRouteTitle] = useState("");
   const [routeType, setRouteType] = useState("👣");
+  const [isUSC, setIsUSC] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Tracking state
@@ -372,6 +373,7 @@ useEffect(() => {
           distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
           duration: `${minutes} min`,
           type: routeType || "👣",
+          tags: isUSC ? ["USC"] : [],
           public: false,
           review: null,
           createdAt: new Date().toISOString(),
@@ -455,6 +457,7 @@ async function setOriginToUserLocation() {
     if (originInputRef.current) originInputRef.current.value = "";
     if (destInputRef.current) destInputRef.current.value = "";
     setOriginPosition(null);
+    setIsUSC(false);
 
     // stop tracking
     if (watchIdRef.current != null) {
@@ -513,6 +516,7 @@ async function setOriginToUserLocation() {
       distance: distanceText || "",
       duration: durationText || "",
       type: routeType || "👣",
+      tags: isUSC ? ["USC"] : [],
       public: false,
       review: null,
       createdAt: new Date().toISOString(),
@@ -625,6 +629,16 @@ async function setOriginToUserLocation() {
             onChange={(e) => setRouteTitle(e.target.value)}
             style={{ padding: 8, minWidth: 260 }}
           />
+
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={isUSC}
+                onChange={(e) => setIsUSC(e.target.checked)}
+              />
+              On Campus
+         </label>
+
           <button onClick={saveRouteToLibrary} disabled={saving}>
             {saving ? "Saving..." : "Save to Library"}
           </button>
