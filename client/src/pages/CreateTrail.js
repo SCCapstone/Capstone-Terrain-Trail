@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   GoogleMap,
-  useJsApiLoader,
   DirectionsRenderer,
   Polyline,
   Marker,
@@ -11,15 +10,16 @@ import {
 import { useNavigate } from "react-router-dom";
 import "../components/CreateTrail.css";
 
+
 const containerStyle = { width: "100%", height: "600px" };
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 
 function travelModeFromType(type) {
   if (!window.google?.maps) return null;
-  if (type === "🚗") return google.maps.TravelMode.DRIVING;
-  if (type === "🚲") return google.maps.TravelMode.BICYCLING;
-  if (type === "🛴" || type === "🛹") return google.maps.TravelMode.BICYCLING;
-  return google.maps.TravelMode.WALKING;
+  if (type === "🚗") return window.google.maps.TravelMode.DRIVING;
+  if (type === "🚲") return window.google.maps.TravelMode.BICYCLING;
+  if (type === "🛴" || type === "🛹") return window.google.maps.TravelMode.BICYCLING;
+  return window.google.maps.TravelMode.WALKING;
 }
 
 function haversineDistanceMeters(a, b) {
@@ -66,12 +66,6 @@ function getEmojiMarkerIcon(emoji = "👣", size = 40) {
 }
 
 export default function CreateTrail() {
-  const { isLoaded, loadError } = useJsApiLoader({
-      googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
-      libraries: ["places", "maps"],
-      version: "weekly",
-  });
-  
   const navigate = useNavigate();
 
   const originInputRef = useRef(null);
@@ -159,7 +153,7 @@ export default function CreateTrail() {
   if (!map || !window.google?.maps) return;
   // If routeType is driving (🚗) use roadmap; otherwise use terrain
   try {
-    const mapType = routeType === "🚗" ? google.maps.MapTypeId.ROADMAP : google.maps.MapTypeId.TERRAIN;
+    const mapType = routeType === "🚗" ? window.google.maps.MapTypeId.ROADMAP : window.google.maps.MapTypeId.TERRAIN;
     map.setMapTypeId(mapType);
   } catch (e) {
     // google may be undefined briefly; ignore
@@ -183,8 +177,6 @@ useEffect(() => {
   };
 }, []);
 
-
-
   function calculateCustomDurationFromWalking(walkingSeconds, multiplier) {
     if (!walkingSeconds || !multiplier) return "";
     const runningSeconds = walkingSeconds / multiplier;
@@ -193,7 +185,7 @@ useEffect(() => {
   }
 
   async function calculateRoute(typeArg) {
-    if (!isLoaded || !window.google?.maps) {
+    if (!window.google?.maps) {
       alert("Map not ready yet — please wait a moment and try again.");
       return;
     }
@@ -206,19 +198,19 @@ useEffect(() => {
     if (!travelMode) return;
 
     try {
-      const directionsService = new google.maps.DirectionsService();
+      const directionsService = new window.google.maps.DirectionsService();
       const request = {
         origin: originVal,
         destination: destVal,
         travelMode,
-        unitSystem: google.maps.UnitSystem.IMPERIAL,
+        unitSystem: window.google.maps.UnitSystem.IMPERIAL,
       };
       const result = await directionsService.route(request);
       setDirectionsResult(result);
       const leg = result.routes[0].legs[0];
       setDistanceText(leg.distance.text);
 
-      if (travelMode === google.maps.TravelMode.DRIVING) {
+      if (travelMode === window.google.maps.TravelMode.DRIVING) {
         setDurationText(leg.duration.text);
       } else if (usedType === "🚲" || usedType === "👣") {
         setDurationText(leg.duration.text);
@@ -398,11 +390,42 @@ useEffect(() => {
     }
   }
 
+async function setOriginToUserLocation() {
+  if (!navigator.geolocation || !window.google?.maps) return;
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      const latLng = new window.google.maps.LatLng(latitude, longitude);
+
+      const geocoder = new window.google.maps.Geocoder();
+
+      geocoder.geocode({ location: latLng }, (results, status) => {
+        if (status === "OK" && results && results[0]) {
+          const address = results[0].formatted_address;
+
+          if (originInputRef.current) {
+            originInputRef.current.value = address;
+          }
+
+          setOriginPosition({ lat: latitude, lng: longitude });
+          setMapCenter({ lat: latitude, lng: longitude });
+        }
+      });
+    },
+    (err) => {
+      console.warn("Geolocation error:", err);
+    }
+  );
+}
+
+
+
   useEffect(() => {
-    if (!isLoaded || !window.google?.maps?.places) return;
+    if (!window.google?.maps?.places) return;
 
     if (originInputRef.current && !originAutocompleteRef.current) {
-      originAutocompleteRef.current = new google.maps.places.Autocomplete(originInputRef.current, {
+      originAutocompleteRef.current = new window.google.maps.places.Autocomplete(originInputRef.current, {
         fields: ["formatted_address", "geometry"],
       });
       originAutocompleteRef.current.addListener("place_changed", () => {
@@ -415,11 +438,11 @@ useEffect(() => {
     }
 
     if (destInputRef.current && !destAutocompleteRef.current) {
-      destAutocompleteRef.current = new google.maps.places.Autocomplete(destInputRef.current, {
+      destAutocompleteRef.current = new window.google.maps.places.Autocomplete(destInputRef.current, {
         fields: ["formatted_address"],
       });
     }
-  }, [isLoaded]);
+  }, []);
 
   // clear everything including timer, tracked data, UI fields
   function clearRoute() {
@@ -466,7 +489,18 @@ useEffect(() => {
       return;
     }
 
+    if (!directionsResult) {
+      window.alert("Please calculate a route before saving.");
+      return;
+    }
+
     const title = (routeTitle || "").trim() || `${originVal} → ${destVal}`;
+
+    // extract geometry from the directions result for explore hover preview
+    const route = directionsResult.routes?.[0];
+    const encodedPolyline = route?.overview_polyline ?? null;
+    const rawBounds = route?.bounds ?? null;
+    const bounds = rawBounds ? { north: rawBounds.getNorthEast().lat(), east:  rawBounds.getNorthEast().lng(), south: rawBounds.getSouthWest().lat(), west:  rawBounds.getSouthWest().lng() } : null;
 
     const newRoute = {
       id: `r_${Date.now()}`,
@@ -479,6 +513,8 @@ useEffect(() => {
       public: false,
       review: null,
       createdAt: new Date().toISOString(),
+      encodedPolyline, // used by Explore hover preview 
+      bounds, // used by Explore fitBounds on hover
     };
 
     try {
@@ -495,17 +531,6 @@ useEffect(() => {
       setSaving(false);
     }
   }
-
-
-  if (loadError) {
-    return (
-      <div style={{ padding: 16 }}>
-        Map failed to load. Check your Google Maps API key and console logs.
-      </div>
-    );
-  }
-
-  if (!isLoaded) return <div style={{ padding: 16 }}>Loading map...</div>;
 
   // compute elapsed display string from elapsedMsDisplay
   const totalElapsedMs = elapsedMsDisplay;
@@ -526,9 +551,23 @@ useEffect(() => {
     <div className="create-trail-container" style={{ maxWidth: 1200, margin: "0 auto" }}>
       <h2  style={{ marginTop: 0 }}>Create Trail</h2>
 
-      <div className="create-trail-form-row" style={{ marginBottom: 12 }}>
-        <input ref={originInputRef} placeholder="Origin" className="create-trail-input" style={{ padding: 8, minWidth: 240 }} />
-        <input ref={destInputRef} placeholder="Destination" className="create-trail-input" style={{ padding: 8, minWidth: 240 }} />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        <div className="origin-input-wrapper">
+          <input
+            ref={originInputRef}
+            placeholder="Origin"
+            style={{ padding: 8, minWidth: 240 }}
+          />
+
+          <button
+            className="use-location-btn"
+            onClick={setOriginToUserLocation}
+          >
+            📍 My location
+          </button>
+        </div>
+
+        <input ref={destInputRef} placeholder="Destination" style={{ padding: 8, minWidth: 240 }} />
 
         {/* transport icons toolbar */}
         <div className= "transport-toolbar" style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -603,66 +642,65 @@ useEffect(() => {
         {trackedDistanceMeters ? `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi` : "—"}
       </div>
 
-      <div className="map-container">
-        <GoogleMap
-          mapContainerStyle={containerStyle}
-          center={mapCenter}
-          zoom={14}
-          onLoad={setMap}
-          options={{
-            styles: isDarkMode ? darkMapStyles : undefined,
-            backgroundColor: isDarkMode ? "#111" : undefined,
-            streetViewControl: false,
-            fullscreenControl: true,
-            mapTypeControl: true,
-          }}
-        >
-          {directionsResult && <DirectionsRenderer directions={directionsResult} />}
-          {trackedPath && trackedPath.length > 1 && (
-            <Polyline path={trackedPath} options={{ strokeWeight: 4 }} />
-          )}
+   
+<div className="map-container">
+  <GoogleMap
+    mapContainerStyle={containerStyle}
+    center={mapCenter}
+    zoom={14}
+    onLoad={setMap}
+    onUnmount={() => setMap(null)}
+  >
+    {directionsResult && <DirectionsRenderer directions={directionsResult} />}
+    {trackedPath && trackedPath.length > 1 && (
+      <Polyline path={trackedPath} options={{ strokeWeight: 4 }} />
+    )}
+    {lastPos && (
+      <Marker
+        position={lastPos}
+        icon={userIcon}
+        optimized={false}
+      />
+    )}
+  </GoogleMap>
 
-          {/* Moving user marker rendered inside the map */}
-          {lastPos && (
-            <Marker
-              position={lastPos}
-              icon={userIcon}
-              // prevent marker optimization to ensure it updates smoothly
-              optimized={false}
-            />
-          )}
-        </GoogleMap>
+  {/* Floating Start / Pause / Stop Controls (INSIDE map via position on .map-container) */}
+  <div className="floating-controls">
+    {!isTracking && (
+      <button
+        className="map-btn"
+        onClick={() => {
+          const originVal = originInputRef.current?.value?.trim();
+          const destVal = destInputRef.current?.value?.trim();
+          if (!directionsResult && originVal && destVal) {
+            calculateRoute().then(beginTracking).catch(beginTracking);
+          } else {
+            beginTracking();
+          }
+        }}
+      >
+        Start
+      </button>
+    )}
 
-        {/* Floating Start / Pause / Stop Controls (moved left a bit from right edge so full screen shows) */}
-        <div className="floating-controls">
-          {!isTracking && (
-            <button
-              onClick={() => {
-                const originVal = originInputRef.current?.value?.trim();
-                const destVal = destInputRef.current?.value?.trim();
-                if (!directionsResult && originVal && destVal) {
-                  calculateRoute().then(beginTracking).catch(beginTracking);
-                } else {
-                  beginTracking();
-                }
-              }}
-            >
-              Start
-            </button>
-          )}
+    {isTracking && !isPaused && (
+      <button className="map-btn" onClick={pauseTracking}>Pause</button>
+    )}
 
-          {isTracking && !isPaused && <button onClick={pauseTracking}>Pause</button>}
+    {isTracking && isPaused && (
+      <button className="map-btn" onClick={resumeTracking}>Resume</button>
+    )}
 
-          {isTracking && isPaused && <button onClick={resumeTracking}>Resume</button>}
+    {isTracking && (
+      <button className="map-btn" onClick={() => stopTracking({ offerSave: true })}>
+        Stop
+      </button>
+    )}
+  </div>
 
-          {isTracking && <button onClick={() => stopTracking({ offerSave: true })}>Stop</button>}
-        </div>
-
-        {/* Recenter button (bottom left) */}
-        <button className="recenter-btn" onClick={recenterToOrigin}>
-          Recenter
-        </button>
-      </div>
+  {/* Recenter button pinned bottom-left inside the map */}
+  <button className="map-btn recenter-btn" onClick={recenterToOrigin}>Recenter</button>
+</div>
     </div>
   );
 }
