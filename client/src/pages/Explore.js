@@ -1,10 +1,8 @@
 /* global google */
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { GoogleMap, useJsApiLoader, DirectionsRenderer } from "@react-google-maps/api";
+import { GoogleMap, DirectionsRenderer } from "@react-google-maps/api";
 import "../components/Explore.css";
-
-const GOOGLE_MAPS_LIBRARIES = ["places"];
 
 // Map container style
 const mapContainerStyle = {
@@ -37,12 +35,6 @@ function readSavedRoutesFromStorage() {
 
 export default function Explore() {
   const navigate = useNavigate();
-
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: "google-map-script",
-    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAP_API_KEY,
-    libraries: GOOGLE_MAPS_LIBRARIES,
-  });
 
   const mapRefInternal = useRef(null);
   const hoverTimerRef = useRef(null);
@@ -83,7 +75,6 @@ export default function Explore() {
 
   // fetch directions for a route and  pan map
   const fetchPreviewDirections = useCallback(async (route) => {
-    if (!isLoaded) return;
     if (!window.google?.maps) return;
     if (!route?.origin || !route?.destination) return;
 
@@ -121,7 +112,7 @@ export default function Explore() {
     } finally {
       setPreviewLoading(false);
     }
-  }, [isLoaded]);
+  }, []);
 
   // hover handlers with 300ms debounce
   const handleCardMouseEnter = useCallback((route) => {
@@ -177,18 +168,7 @@ export default function Explore() {
     return matchesFilter && matchesSearch;
   });
 
-  if (loadError) {
-    return (
-      <div className="explore-page">
-        <h1 style={{ marginTop: 0}}>Explore - Public Trails</h1>
-        <div className="empty-box" style={{ color: "red" }}>
-          Failed to load Google Maps. Check your API key and map loader settings.
-        </div>
-      </div>
-    );
-  }
-
-    return (
+  return (
     <div className="explore-page">
       <h1 style={{ marginTop: 0 }}>Explore — Public Trails</h1>
 
@@ -232,41 +212,26 @@ export default function Explore() {
 
       <section style={{ marginBottom: 18 }}>
         <div className="map-card" style={{ position: "relative" }}>
-          {isLoaded ? (
-            <GoogleMap
-              mapContainerStyle={mapContainerStyle}
-              center={DEFAULT_CENTER}
-              zoom={13}
-              onLoad={onMapLoad}
-            >
-              {previewDirections && (
-                <DirectionsRenderer
-                  directions={previewDirections}
-                  options={{
-                    suppressMarkers: false,
-                    polylineOptions: {
-                      strokeColor: "#0b63d6",
-                      strokeWeight: 5,
-                      strokeOpacity: 0.85,
-                    },
-                  }}
-                />
-              )}
-            </GoogleMap>
-          ) : (
-            <div
-              style={{
-                width: "100%",
-                height: 450,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--muted)",
-              }}
-            >
-              Loading map…
-            </div>
-          )}
+          <GoogleMap
+            mapContainerStyle={mapContainerStyle}
+            center={DEFAULT_CENTER}
+            zoom={13}
+            onLoad={onMapLoad}
+          >
+            {previewDirections && (
+              <DirectionsRenderer
+                directions={previewDirections}
+                options={{
+                  suppressMarkers: false,
+                  polylineOptions: {
+                    strokeColor: "#0b63d6",
+                    strokeWeight: 5,
+                    strokeOpacity: 0.85,
+                  },
+                }}
+              />
+            )}
+          </GoogleMap>
 
           {previewLoading && (
             <div
@@ -305,8 +270,7 @@ export default function Explore() {
                 whiteSpace: "nowrap",
               }}
             >
-              Previewing:{" "}
-              {previewRoute.title || `${previewRoute.origin} → ${previewRoute.destination}`}
+              Previewing: {previewRoute.title || `${previewRoute.origin} → ${previewRoute.destination}`}
             </div>
           )}
         </div>
@@ -336,9 +300,7 @@ export default function Explore() {
         {loadingPublic ? (
           <div style={{ color: "var(--muted)" }}>Loading public trails…</div>
         ) : filteredRoutes.length === 0 ? (
-          <div className="empty-box">
-            No public trails found matching your search or category.
-          </div>
+          <div className="empty-box">No public trails found matching your search or category.</div>
         ) : (
           <div className="routes-grid">
             {filteredRoutes.map((r) => (

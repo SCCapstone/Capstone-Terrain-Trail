@@ -1,6 +1,6 @@
 ﻿/* global google */
 import React, { useEffect, useRef, useState } from "react";
-import { GoogleMap, useJsApiLoader, DirectionsRenderer } from "@react-google-maps/api";
+import { GoogleMap, DirectionsRenderer } from "@react-google-maps/api";
 
 const containerStyle = {
   width: "100%",
@@ -9,7 +9,6 @@ const containerStyle = {
 
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 const LOCAL_STORAGE_KEY = "savedRoutes_v1";
-const GOOGLE_MAPS_LIBRARIES = ["places"];
 
 function travelModeFromType(type) {
   if (!window.google?.maps) return null;
@@ -73,12 +72,6 @@ function parseDurationToMinutes(durationText) {
 }
 
 export default function Library() {
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: "google-map-script",
-    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
-    libraries: GOOGLE_MAPS_LIBRARIES,
-  });
-
   const mapRef = useRef(null);
   const [map, setMap] = useState(null);
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
@@ -181,7 +174,7 @@ export default function Library() {
   }
 
   async function loadRoute(route) {
-  if (!isLoaded || !window.google?.maps) return;
+  if (!window.google?.maps) return;
 
   setLoadingRouteId(route.id);
   setSelectedRouteId(route.id);
@@ -311,9 +304,6 @@ export default function Library() {
     map.panTo(target);
     map.setZoom(14);
   }
-
-  if (loadError) return <div>Error loading Google Maps</div>;
-  if (!isLoaded) return <div>Loading map...</div>;
 
   return (
     <div style={{ padding: "1.5rem", maxWidth: 1200, margin: "0 auto" }}>
@@ -476,6 +466,10 @@ export default function Library() {
             onLoad={(m) => {
               setMap(m);
               mapRef.current = m;
+            }}
+            onUnmount={() => {
+              setMap(null);
+              mapRef.current = null;
             }}
             options={{
               fullscreenControl: false,

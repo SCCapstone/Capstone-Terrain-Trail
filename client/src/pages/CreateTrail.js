@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   GoogleMap,
-  useJsApiLoader,
   DirectionsRenderer,
   Polyline,
   Marker,
@@ -11,7 +10,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import "../components/CreateTrail.css";
 
-const GOOGLE_MAPS_LIBRARIES = ["places"];
+
 const containerStyle = { width: "100%", height: "600px" };
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 
@@ -67,12 +66,6 @@ function getEmojiMarkerIcon(emoji = "👣", size = 40) {
 }
 
 export default function CreateTrail() {
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: "google-map-script",
-    googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY,
-    libraries: GOOGLE_MAPS_LIBRARIES,
-  });
-  
   const navigate = useNavigate();
 
   const originInputRef = useRef(null);
@@ -192,7 +185,7 @@ useEffect(() => {
   }
 
   async function calculateRoute(typeArg) {
-    if (!isLoaded || !window.google?.maps) {
+    if (!window.google?.maps) {
       alert("Map not ready yet — please wait a moment and try again.");
       return;
     }
@@ -429,7 +422,7 @@ async function setOriginToUserLocation() {
 
 
   useEffect(() => {
-    if (!isLoaded || !window.google?.maps?.places) return;
+    if (!window.google?.maps?.places) return;
 
     if (originInputRef.current && !originAutocompleteRef.current) {
       originAutocompleteRef.current = new window.google.maps.places.Autocomplete(originInputRef.current, {
@@ -449,7 +442,7 @@ async function setOriginToUserLocation() {
         fields: ["formatted_address"],
       });
     }
-  }, [isLoaded]);
+  }, []);
 
   // clear everything including timer, tracked data, UI fields
   function clearRoute() {
@@ -538,16 +531,6 @@ async function setOriginToUserLocation() {
       setSaving(false);
     }
   }
-
-  if (loadError) {
-    return (
-      <div style={{ padding: 16 }}>
-        Map failed to load. Check your Google Maps API key and console logs.
-      </div>
-    );
-  }
-
-  if (!isLoaded) return <div style={{ padding: 16 }}>Loading map...</div>;
 
   // compute elapsed display string from elapsedMsDisplay
   const totalElapsedMs = elapsedMsDisplay;
@@ -666,6 +649,7 @@ async function setOriginToUserLocation() {
     center={mapCenter}
     zoom={14}
     onLoad={setMap}
+    onUnmount={() => setMap(null)}
   >
     {directionsResult && <DirectionsRenderer directions={directionsResult} />}
     {trackedPath && trackedPath.length > 1 && (
