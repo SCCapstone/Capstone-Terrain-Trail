@@ -500,7 +500,7 @@ function getLastTrackedPoint() {
       }
     }
   }
-}
+
   async function setOriginToUserLocation() {
   if (!navigator.geolocation || !google?.maps) {
     setLocationMessage("Location permission required.");
@@ -956,4 +956,3 @@ function getLastTrackedPoint() {
 </div>
     </div>
   );
-}
