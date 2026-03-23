@@ -82,6 +82,7 @@ export default function CreateTrail() {
   const [distanceText, setDistanceText] = useState("");
   const [durationText, setDurationText] = useState("");
   const [originPosition, setOriginPosition] = useState(null);
+  const [locationMessage, setLocationMessage] = useState("");
 
   const [routeTitle, setRouteTitle] = useState("");
   const [routeType, setRouteType] = useState("👣");
@@ -151,6 +152,19 @@ export default function CreateTrail() {
     },
   ];
 
+
+  const HAZARD_OPTIONS = [
+  { key: "pothole", label: "Pothole", emoji: "🕳️" },
+  { key: "construction", label: "Construction", emoji: "🚧" },
+  { key: "car", label: "Car on roadside", emoji: "🚗" },
+  { key: "debris", label: "Road debris", emoji: "🪨" },
+  { key: "accident", label: "Accident", emoji: "⚠️" },
+];
+
+const [hazardMenuOpen, setHazardMenuOpen] = useState(false);
+const [hazards, setHazards] = useState([]); // [{ lat, lng, type }]
+const [selectedHazardType, setSelectedHazardType] = useState(null);
+
   // Keep map type in sync with routeType (darkmode-safe)
   useEffect(() => {
   if (!map || !window.google?.maps) return;
@@ -180,6 +194,64 @@ useEffect(() => {
   };
 }, []);
 
+
+
+function placeHazardNow(type) {
+  const pos = getCurrentHazardPosition();
+  if (!pos || !type) return;
+
+  setHazards((prev) => [
+    ...prev,
+    {
+      lat: pos.lat,
+      lng: pos.lng,
+      type,
+      createdAt: new Date().toISOString(),
+    },
+  ]);
+
+  setSelectedHazardType(null);
+  setHazardMenuOpen(false);
+}
+
+function getEmojiMarkerIcon(emoji, size = 36) {
+  return {
+    url:
+      "data:image/svg+xml;charset=UTF-8," +
+      encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">
+          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="${size * 0.8}">
+            ${emoji}
+          </text>
+        </svg>
+      `),
+    scaledSize: new window.google.maps.Size(size, size),
+  };
+}
+
+function handleMapClick(e) {
+  if (!selectedHazardType) return;
+  const clicked = e?.latLng?.toJSON?.();
+  if (!clicked) return;
+  getCurrentHazardPosition(clicked, selectedHazardType);
+}
+
+function getCurrentHazardPosition() {
+  if (isTracking && trackedPath.length > 0) {
+    return trackedPath[trackedPath.length - 1];
+  }
+  if (originPosition) {
+    return originPosition;
+  }
+  return null;
+}
+
+function getLastTrackedPoint() {
+  if (!trackedPath || trackedPath.length === 0) return null;
+  return trackedPath[trackedPath.length - 1];
+}
+
+
   function calculateCustomDurationFromWalking(walkingSeconds, multiplier) {
     if (!walkingSeconds || !multiplier) return "";
     const runningSeconds = walkingSeconds / multiplier;
@@ -196,22 +268,25 @@ useEffect(() => {
     const destVal = destInputRef.current?.value?.trim();
     if (!originVal || !destVal) return;
 
-    const usedType = typeArg || routeType;
-    const travelMode = travelModeFromType(usedType);
-    if (!travelMode) return;
+  const usedType = typeArg || routeType;
+  const travelMode = travelModeFromType(usedType);
+  if (!travelMode) return;
 
-    try {
-      const directionsService = new window.google.maps.DirectionsService();
-      const request = {
-        origin: originVal,
-        destination: destVal,
-        travelMode,
-        unitSystem: window.google.maps.UnitSystem.IMPERIAL,
-      };
-      const result = await directionsService.route(request);
-      setDirectionsResult(result);
-      const leg = result.routes[0].legs[0];
-      setDistanceText(leg.distance.text);
+  try {
+    const directionsService = new google.maps.DirectionsService();
+
+    const request = {
+      origin: originPosition || originVal,   // <- use GPS first
+      destination: destVal,
+      travelMode,
+      unitSystem: google.maps.UnitSystem.IMPERIAL,
+    };
+
+    const result = await directionsService.route(request);
+    setDirectionsResult(result);
+
+    const leg = result.routes[0].legs[0];
+    setDistanceText(leg.distance.text);
 
       if (travelMode === window.google.maps.TravelMode.DRIVING) {
         setDurationText(leg.duration.text);
@@ -340,45 +415,76 @@ useEffect(() => {
     watchIdRef.current = id;
   }
 
-  function stopTracking({ offerSave = true } = {}) {
-    if (!isTracking) return;
-    // finalize elapsed
-    if (startTsRef.current) {
-      baseElapsedRef.current += Date.now() - startTsRef.current;
-      startTsRef.current = null;
-    }
-    setIsTracking(false);
-    setIsPaused(false);
-    // stop geolocation watcher
-    if (watchIdRef.current != null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
-    stopElapsedTimer();
-    setElapsedMsDisplay(baseElapsedRef.current);
+  async function stopTracking({ offerSave = true } = {}) {
+  if (!isTracking) return;
 
-    if (offerSave && trackedPath.length > 0) {
-      const minutes = Math.round((baseElapsedRef.current || 0) / 60000);
-      if (window.confirm("Save tracked route to library?")) {
-        const originVal = originInputRef.current?.value?.trim() || "";
-        const destVal = destInputRef.current?.value?.trim() || "";
-        const title =
-          (routeTitle || "").trim() || `${originVal || "Start"} → ${destVal || "End"}`;
+  // finalize elapsed time
+  if (startTsRef.current) {
+    baseElapsedRef.current += Date.now() - startTsRef.current;
+    startTsRef.current = null;
+  }
 
-        const newRoute = {
-          id: `r_${Date.now()}`,
-          title,
-          origin: originVal || "",
-          destination: destVal || "",
-          distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
-          duration: `${minutes} min`,
-          type: routeType || "👣",
+  setIsTracking(false);
+  setIsPaused(false);
+
+  // stop GPS watcher
+  if (watchIdRef.current != null) {
+    navigator.geolocation.clearWatch(watchIdRef.current);
+    watchIdRef.current = null;
+  }
+
+  stopElapsedTimer();
+  setElapsedMsDisplay(baseElapsedRef.current);
+
+  // helper for reverse geocoding
+  async function reverseGeocodePoint(point) {
+    if (!window.google?.maps || !point) return null;
+
+    return new Promise((resolve) => {
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ location: point }, (results, status) => {
+        if (status === "OK" && results && results[0]) {
+          resolve(results[0].formatted_address);
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  }
+
+  if (offerSave && trackedPath.length > 0) {
+    const minutes = Math.round((baseElapsedRef.current || 0) / 60000);
+
+    const originVal = originInputRef.current?.value?.trim() || "";
+    const lastPoint = trackedPath[trackedPath.length - 1];
+
+    // 🔥 get real address instead of lat/lng
+    let destinationValue = "End";
+    if (lastPoint) {
+      const address = await reverseGeocodePoint(lastPoint);
+      destinationValue =
+        address ||
+        `${lastPoint.lat.toFixed(6)}, ${lastPoint.lng.toFixed(6)}`;
+    }
+
+    const title =
+      (routeTitle || "").trim() ||
+      `${originVal || "Start"} → ${destinationValue}`;
+
+    const newRoute = {
+      id: `r_${Date.now()}`,
+      title,
+      origin: originVal,
+      destination: destinationValue,
+      distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
+      duration: `${minutes} min`,
+      type: routeType || "👣",
           tags: isUSC ? ["USC"] : [],
-          public: false,
-          review: null,
-          createdAt: new Date().toISOString(),
-          path: trackedPath,
-        };
+      public: false,
+      review: null,
+      createdAt: new Date().toISOString(),
+      path: trackedPath,
+    };
 
         try {
           const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -394,9 +500,14 @@ useEffect(() => {
       }
     }
   }
+}
+  async function setOriginToUserLocation() {
+  if (!navigator.geolocation || !google?.maps) {
+    setLocationMessage("Location permission required.");
+    return;
+  }
 
-async function setOriginToUserLocation() {
-  if (!navigator.geolocation || !window.google?.maps) return;
+  setLocationMessage("");
 
   navigator.geolocation.getCurrentPosition(
     (pos) => {
@@ -415,11 +526,23 @@ async function setOriginToUserLocation() {
 
           setOriginPosition({ lat: latitude, lng: longitude });
           setMapCenter({ lat: latitude, lng: longitude });
+          setLocationMessage("");
+        } else {
+          setLocationMessage("Could not get your location.");
         }
       });
     },
     (err) => {
-      console.warn("Geolocation error:", err);
+      if (err?.code === 1) {
+        setLocationMessage("Location permission required.");
+      } else {
+        setLocationMessage("Could not get your location.");
+      }
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 5000,
+      maximumAge: 0,
     }
   );
 }
@@ -451,6 +574,7 @@ async function setOriginToUserLocation() {
 
   // clear everything including timer, tracked data, UI fields
   function clearRoute() {
+    setLocationMessage("");
     setDirectionsResult(null);
     setDistanceText("");
     setDurationText("");
@@ -573,6 +697,12 @@ async function setOriginToUserLocation() {
           >
             📍 My location
           </button>
+
+          {locationMessage && (
+            <div style={{ marginTop: 6, fontSize: 14, color: "crimson" }}>
+              {locationMessage}
+            </div>
+          )}
         </div>
 
         <input ref={destInputRef} placeholder="Destination" style={{ padding: 8, minWidth: 240 }} />
@@ -645,6 +775,7 @@ async function setOriginToUserLocation() {
           
           <button onClick={clearRoute}>Clear</button>
         </div>
+        
       </div>
 
       <div style={{ marginBottom: 12 }}>
@@ -663,42 +794,146 @@ async function setOriginToUserLocation() {
    
 <div className="map-container">
   <GoogleMap
-    mapContainerStyle={containerStyle}
-    center={mapCenter}
-    zoom={14}
-    onLoad={setMap}
+  mapContainerStyle={containerStyle}
+  center={mapCenter}
+  zoom={14}
+  onLoad={setMap}
+  onClick={handleMapClick}
     onUnmount={() => setMap(null)}
-  >
-    {directionsResult && <DirectionsRenderer directions={directionsResult} />}
-    {trackedPath && trackedPath.length > 1 && (
-      <Polyline path={trackedPath} options={{ strokeWeight: 4 }} />
-    )}
-    {lastPos && (
-      <Marker
-        position={lastPos}
-        icon={userIcon}
-        optimized={false}
-      />
-    )}
-  </GoogleMap>
+>
+  {directionsResult && <DirectionsRenderer directions={directionsResult} />}
+  {trackedPath && trackedPath.length > 1 && (
+    <Polyline path={trackedPath} options={{ strokeWeight: 4 }} />
+  )}
+
+  {lastPos && (
+    <Marker position={lastPos} icon={userIcon} optimized={false} />
+  )}
+
+{hazards.map((hazard, idx) => {
+  const emojiMap = {
+    pothole: "🕳️",
+    construction: "🚧",
+    car: "🚗",
+    debris: "🪨",
+    accident: "⚠️",
+    flood: "🌊",
+  };
+
+  return (
+    <Marker
+      key={idx}
+      position={{ lat: hazard.lat, lng: hazard.lng }}
+      icon={getEmojiMarkerIcon(emojiMap[hazard.type] || "⚠️")}
+      title={hazard.type}
+      optimized={false}
+    />
+  );
+})}
+
+
+</GoogleMap>
 
   {/* Floating Start / Pause / Stop Controls (INSIDE map via position on .map-container) */}
+  {/* Hazard control pinned above Google camera controls */}
+<div className="hazard-control">
+  <button
+    className="map-btn hazard-btn"
+    onClick={() => setHazardMenuOpen((v) => !v)}
+    aria-expanded={hazardMenuOpen}
+  >
+    ⚠️ Hazard
+  </button>
+
+  {hazardMenuOpen && (
+    <div className="hazard-menu">
+      <button
+        className="hazard-menu-item"
+        onClick={() => placeHazardNow("accident")}
+      >
+        ⚠️ Accident
+      </button>
+  
+      <button
+        className="hazard-menu-item"
+        onClick={() => placeHazardNow("pothole")}
+      >
+        🕳️ Pothole
+      </button>
+
+      <button
+        className="hazard-menu-item"
+        onClick={() => placeHazardNow("construction")}
+      >
+        🚧 Construction
+      </button>
+
+      <button
+        className="hazard-menu-item"
+        onClick={() => placeHazardNow("car")}
+      >
+        🚗 Car on roadside
+      </button>
+
+      <button
+      className="hazard-menu-item"
+      onClick={() => placeHazardNow("debris")}
+    >
+      🪨 Road debris
+    </button>
+
+      <button
+        className="hazard-menu-item"
+        onClick={() => {
+          setSelectedHazardType(null);
+          setHazardMenuOpen(false);
+        }}
+      >
+        Cancel
+      </button>
+    </div>
+  )}
+</div>
+
+
+
   <div className="floating-controls">
     {!isTracking && (
-      <button
+      <>
+        <button
+          className="map-btn"
+          onClick={() => {
+            const originVal = originInputRef.current?.value?.trim();
+            const destVal = destInputRef.current?.value?.trim();
+            if (!directionsResult && originVal && destVal) {
+              calculateRoute().then(beginTracking).catch(beginTracking);
+            } else {
+              beginTracking();
+            }
+          }}
+        >
+          Start
+        </button>
+
+        <button
         className="map-btn"
         onClick={() => {
           const originVal = originInputRef.current?.value?.trim();
-          const destVal = destInputRef.current?.value?.trim();
-          if (!directionsResult && originVal && destVal) {
-            calculateRoute().then(beginTracking).catch(beginTracking);
-          } else {
-            beginTracking();
+          if (!originVal) {
+            setLocationMessage("Please enter a start location before recording.");
+            return;
           }
+
+          setLocationMessage("");
+          setDirectionsResult(null);
+          setDistanceText("");
+          setDurationText("");
+          beginTracking();
         }}
       >
-        Start
+        Record New Route
       </button>
+      </>
     )}
 
     {isTracking && !isPaused && (
