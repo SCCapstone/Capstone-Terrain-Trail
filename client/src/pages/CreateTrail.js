@@ -191,6 +191,9 @@ useEffect(() => {
 }, []);
 
 
+function deleteHazard(index) {
+  setHazards((prev) => prev.filter((_, i) => i !== index));
+}
 
 function placeHazardNow(type) {
   const pos = getCurrentHazardPosition();
@@ -739,8 +742,13 @@ function handleMapClick(e) {
                 icon={getEmojiMarkerIcon(emojiMap[hazard.type] || "⚠️")}
                 title={hazard.type}
                 optimized={false}
-              />
-            );
+                clickable={true}
+                onClick={(e) => {
+                e.domEvent.stopPropagation();
+                deleteHazard(idx);
+                }}
+                />
+              );
           })}
         </GoogleMap>
  

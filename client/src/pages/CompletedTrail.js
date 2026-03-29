@@ -1,5 +1,6 @@
 // src/pages/CompletedTrail.js
 import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useSnackbar } from "../components/Snackbar.jsx";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   GoogleMap,
@@ -58,6 +59,9 @@ const HAZARD_EMOJI = {
 export default function CompletedTrail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { showSnackbar } = useSnackbar();
+  const undoTimeoutRef = useRef(null);
+  const lastDeletedRef = useRef(null);
 
   const mapRef = useRef(null);
 
@@ -76,6 +80,7 @@ export default function CompletedTrail() {
   const [comment, setComment] = useState("");
 
   const [hazards, setHazards] = useState([]);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
     async function fetchRoute() {
@@ -185,31 +190,28 @@ export default function CompletedTrail() {
       navigate("/app/explore");
     } catch (e) {
       console.error("saveChanges error", e);
-      alert("Failed to save changes. Please try again.");
+      showSnackbar("Failed to save changes", "error");
     } finally {
       setSaving(false);
     }
   }
 
-  async function deleteRoute() {
-    if (!window.confirm("Delete this route? This cannot be undone.")) return;
+ async function deleteRoute() {
+  try {
+    const res = await fetch(`${API_BASE}/api/routes/${id}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
 
-    try {
-      const res = await fetch(`${API_BASE}/api/routes/${id}`, {
-        method: "DELETE",
-        headers: authHeaders(),
-      });
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
 
-      if (!res.ok) {
-        throw new Error(`Server error: ${res.status}`);
-      }
-
-      navigate("/app/explore");
-    } catch (e) {
-      console.error("deleteRoute error", e);
-      alert("Failed to delete route. Please try again.");
-    }
+    showSnackbar("Route deleted", "success");
+    navigate("/app/explore");
+  } catch (e) {
+    console.error("deleteRoute error", e);
+    showSnackbar("Failed to delete route", "error");
   }
+}
 
   function removeHazard(idx) {
     setHazards((prev) => prev.filter((_, i) => i !== idx));
@@ -430,13 +432,28 @@ export default function CompletedTrail() {
             <button onClick={() => saveChanges()} disabled={saving} aria-label="Save route">
               {saving ? "Saving..." : "Save"}
             </button>
+            {!confirmingDelete ? (
             <button
-              onClick={deleteRoute}
+              onClick={() => setConfirmingDelete(true)}
               className="delete-btn"
-              aria-label="Delete route"
             >
               Delete
             </button>
+          ) : (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={deleteRoute}
+                className="delete-btn"
+                style={{ background: "red", color: "white" }}
+              >
+                Confirm
+              </button>
+
+              <button onClick={() => setConfirmingDelete(false)}>
+                Cancel
+              </button>
+            </div>
+          )}
           </div>
 
           <div style={{ marginTop: 12 }}>
