@@ -14,13 +14,79 @@ const mapContainerStyle = {
 const DEFAULT_CENTER = { lat: 34.0007, lng: -81.0348 };
 const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
 
-//Travel Mode Type 
+// Travel Mode Type
 function travelModeFromType(type) {
   if (!window.google?.maps) return null;
   if (type === "🚗") return window.google.maps.TravelMode.DRIVING;
-  if (type === "🚲" || type === "🛴" || type === "🛹")
+  if (type === "🚲" || type === "🛴" || type === "🛹") {
     return window.google.maps.TravelMode.BICYCLING;
+  }
   return window.google.maps.TravelMode.WALKING;
+}
+
+function getRouteRating(route) {
+  const stars = Number(route?.review?.stars);
+  return Number.isFinite(stars) ? stars : 0;
+}
+
+function getRouteTimestamp(route) {
+  const candidates = [
+    route?.createdAt,
+    route?.created_at,
+    route?.updatedAt,
+    route?.updated_at,
+    route?.publishedAt,
+    route?.published_at,
+    route?.date,
+    route?.timestamp,
+    route?.review?.createdAt,
+    route?.review?.created_at,
+    route?.id,
+  ];
+
+  for (const value of candidates) {
+    if (value == null) continue;
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+  }
+
+  return 0;
+}
+
+function sortPublicRoutes(routes, sortBy) {
+  const sorted = [...routes];
+
+  sorted.sort((a, b) => {
+    if (sortBy === "newest") {
+      const timeDiff = getRouteTimestamp(b) - getRouteTimestamp(a);
+      if (timeDiff !== 0) return timeDiff;
+
+      const ratingDiff = getRouteRating(b) - getRouteRating(a);
+      if (ratingDiff !== 0) return ratingDiff;
+    } else {
+      const ratingDiff = getRouteRating(b) - getRouteRating(a);
+      if (ratingDiff !== 0) return ratingDiff;
+
+      const timeDiff = getRouteTimestamp(b) - getRouteTimestamp(a);
+      if (timeDiff !== 0) return timeDiff;
+    }
+
+    return String(a?.title ?? "").localeCompare(String(b?.title ?? ""));
+  });
+
+  return sorted;
 }
 
 async function fetchPublicRoutes() {
@@ -44,7 +110,7 @@ export default function Explore() {
   const mapRefInternal = useRef(null);
   const hoverTimerRef = useRef(null);
   const directionsCache = useRef({});
-  
+
   // data / loading
   const [publicRoutes, setPublicRoutes] = useState([]);
   const [loadingPublic, setLoadingPublic] = useState(true);
@@ -52,12 +118,13 @@ export default function Explore() {
 
   // filters
   const [activeFilter, setActiveFilter] = useState("All");
-  const [searchQuery, setSearchQuery] = useState(""); // New search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("highestRated");
 
   // map preview
-  const [previewRoute, setPreviewRoute] = useState(null); // card being hovered
-  const [previewDirections, setPreviewDirections] = useState(null); //DirectionsResult for a card
-  const [previewLoading, setPreviewLoading] = useState(false); // loading indicator on map
+  const [previewRoute, setPreviewRoute] = useState(null);
+  const [previewDirections, setPreviewDirections] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const onMapLoad = useCallback((map) => {
     mapRefInternal.current = map;
@@ -70,13 +137,11 @@ export default function Explore() {
     try {
       const routes = await fetchPublicRoutes();
       setPublicRoutes(routes);
-    }
-    catch (e) {
+    } catch (e) {
       console.error("loadPublicRoutes error", e);
       setFetchError("Could not load public trails. Please try again.");
       setPublicRoutes([]);
-    }
-    finally {
+    } finally {
       setLoadingPublic(false);
     }
   }, []);
@@ -85,7 +150,7 @@ export default function Explore() {
     loadPublicRoutes();
   }, [loadPublicRoutes]);
 
-  // fetch directions for a route and  pan map
+  // fetch directions for a route and pan map
   const fetchPreviewDirections = useCallback(async (route) => {
     if (!window.google?.maps) return;
     if (!route?.origin || !route?.destination) return;
@@ -136,7 +201,6 @@ export default function Explore() {
     }, 300);
   }, [fetchPreviewDirections]);
 
-
   const handleCardMouseLeave = useCallback(() => {
     clearTimeout(hoverTimerRef.current);
     setPreviewRoute(null);
@@ -149,7 +213,7 @@ export default function Explore() {
     }
   }, []);
 
-  // cleanup debounce timer on unmount 
+  // cleanup debounce timer on unmount
   useEffect(() => () => clearTimeout(hoverTimerRef.current), []);
 
   const openCompleted = (id) => navigate(`/app/completed/${id}`);
@@ -165,18 +229,21 @@ export default function Explore() {
     }
   };
 
-  // Filters: Handles both Transport Mode and Search 
-  const filteredRoutes = publicRoutes.filter(r => {
-    const matchesFilter = activeFilter === "All" || r.type === activeFilter;
-    
-    const searchLower = searchQuery.toLowerCase();
-    const matchesSearch = 
-      (r.title || "").toLowerCase().includes(searchLower) ||
-      (r.origin || "").toLowerCase().includes(searchLower) ||
-      (r.destination || "").toLowerCase().includes(searchLower);
+  // Filters: Handles both Transport Mode and Search, then sorts the result
+  const filteredRoutes = sortPublicRoutes(
+    publicRoutes.filter((r) => {
+      const matchesFilter = activeFilter === "All" || r.type === activeFilter;
 
-    return matchesFilter && matchesSearch;
-  });
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch =
+        (r.title || "").toLowerCase().includes(searchLower) ||
+        (r.origin || "").toLowerCase().includes(searchLower) ||
+        (r.destination || "").toLowerCase().includes(searchLower);
+
+      return matchesFilter && matchesSearch;
+    }),
+    sortBy === "newest" ? "newest" : "highestRated"
+  );
 
   return (
     <div className="explore-page">
@@ -196,13 +263,13 @@ export default function Explore() {
         <div className="buttons">
           {[
             { key: "All", label: "Show All" },
-            { key: "👣",  label: "Walking" },
-            { key: "🚲",  label: "Biking" },
-            { key: "🚗",  label: "Driving" },
-            { key: "🛹",  label: "Skateboarding" },
-            { key: "🏃",  label: "Running" },
-            { key: "🛴",  label: "Scootering" },
-            { key: "♿",  label: "Wheelchair" },
+            { key: "👣", label: "Walking" },
+            { key: "🚲", label: "Biking" },
+            { key: "🚗", label: "Driving" },
+            { key: "🛹", label: "Skateboarding" },
+            { key: "🏃", label: "Running" },
+            { key: "🛴", label: "Scootering" },
+            { key: "♿", label: "Wheelchair" },
           ].map((opt) => (
             <button
               key={opt.key}
@@ -299,12 +366,48 @@ export default function Explore() {
         </div>
       </section>
 
-       <section>
-        <h2 style={{ marginBottom: 12 }}>
-          {activeFilter === "All" ? "Public Trails" : `${activeFilter} Trails`}
-          {searchQuery && ` matching "${searchQuery}"`}
-        </h2>
- 
+      <section>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 12,
+          }}
+        >
+          <h2 style={{ marginBottom: 0 }}>
+            {activeFilter === "All" ? "Public Trails" : `${activeFilter} Trails`}
+            {searchQuery && ` matching "${searchQuery}"`}
+          </h2>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 14,
+              color: "var(--muted)",
+            }}
+          >
+            Sort by:
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(0,0,0,0.15)",
+                background: "#fff",
+              }}
+            >
+              <option value="highestRated">Highest rated</option>
+              <option value="newest">Newest</option>
+            </select>
+          </label>
+        </div>
+
         {loadingPublic ? (
           <div style={{ color: "var(--muted)" }}>Loading public trails…</div>
         ) : fetchError ? (
@@ -334,7 +437,7 @@ export default function Explore() {
                         {r.title || `${r.origin} → ${r.destination}`}
                       </strong>
                     </div>
- 
+
                     <div className="route-meta">
                       {r.origin} → {r.destination}
                       <span style={{ marginLeft: 8 }}>• {r.distance || "—"}</span>
@@ -343,7 +446,7 @@ export default function Explore() {
                       </span>
                     </div>
                   </div>
- 
+
                   <div className="route-actions">
                     <button onClick={() => openCompleted(r.id)}>View</button>
                     <button onClick={() => copyCompletedLink(r.id)}>
@@ -351,7 +454,7 @@ export default function Explore() {
                     </button>
                   </div>
                 </div>
- 
+
                 {r.review && (
                   <div className="route-review">
                     <div>
@@ -362,7 +465,7 @@ export default function Explore() {
                         style={{
                           marginTop: 4,
                           fontStyle: "italic",
-                          color:     "var(--muted)",
+                          color: "var(--muted)",
                         }}
                       >
                         "{r.review.comment}"
