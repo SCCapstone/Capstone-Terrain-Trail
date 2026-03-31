@@ -1,6 +1,12 @@
 /* global google */
-import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { GoogleMap, DirectionsRenderer, Polyline } from "@react-google-maps/api";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
+import { GoogleMap, DirectionsRenderer } from "@react-google-maps/api";
 import "../components/Explore.css";
 
 // Map container style
@@ -11,7 +17,6 @@ const mapContainerStyle = {
 
 const DEFAULT_CENTER = { lat: 34.0007, lng: -81.0348 };
 const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
-
 
 function travelModeFromType(type) {
   if (!window.google?.maps) return null;
@@ -61,7 +66,6 @@ async function voteOnRoute(routeId, vote) {
 export default function Explore() {
   const mapRefInternal = useRef(null);
   const directionsCache = useRef({});
-  const [previewPath, setPreviewPath] = useState([]);
 
   const [publicRoutes, setPublicRoutes] = useState([]);
   const [loadingPublic, setLoadingPublic] = useState(true);
@@ -112,27 +116,20 @@ export default function Explore() {
     return `Top ${modeMap[activeFilter] || "Trails"}`;
   };
 
-  const handleViewOnMap = useCallback(async (route) => {
-    if (!window.google?.maps || !route?.origin || !route?.destination) return;
-    
-    // TOGGLE LOGIC: If the clicked route is already selected, clear the map
-    if (selectedRouteId === route.id) {
-      setSelectedRouteId(null);
-      setPreviewDirections(null);
-      setPreviewPath([]);
-      return;
-    }
-    if (route.recorded === true && Array.isArray(route.path) && route.path.length > 1) {
-      setPreviewDirections(null);
-      setPreviewPath(route.path);
+  const handleViewOnMap = useCallback(
+    async (route) => {
+      if (!window.google?.maps || !route?.origin || !route?.destination) {
+        return;
+      }
 
-      const bounds = new window.google.maps.LatLngBounds();
-      route.path.forEach((p) => bounds.extend(p));
-      mapRefInternal.current.fitBounds(bounds, 40);
+      // Toggle off if same route clicked again
+      if (selectedRouteId === route.id) {
+        setSelectedRouteId(null);
+        setPreviewDirections(null);
+        return;
+      }
 
-      return;
-    }
-    setSelectedRouteId(route.id);
+      setSelectedRouteId(route.id);
 
       if (directionsCache.current[route.id]) {
         const cached = directionsCache.current[route.id];
@@ -242,7 +239,9 @@ export default function Explore() {
       const matchesSearch =
         (r.title || "").toLowerCase().includes(searchLower) ||
         (r.origin || "").toLowerCase().includes(searchLower) ||
-        (r.destination || "").toLowerCase().includes(searchLower);
+        (r.destination || "").toLowerCase().includes(searchLower) ||
+        (r.authorUsername || "").toLowerCase().includes(searchLower) ||
+        (r.authorName || "").toLowerCase().includes(searchLower);
 
       return matchesFilter && matchesSearch;
     });
@@ -263,7 +262,7 @@ export default function Explore() {
       <div className="explore-search">
         <input
           type="text"
-          placeholder="Search by title, origin, or destination..."
+          placeholder="Search by title, origin, destination, or author..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
@@ -311,27 +310,16 @@ export default function Explore() {
             zoom={13}
             onLoad={onMapLoad}
           >
-            {previewPath.length > 1 ? (
-              <Polyline
-                path={previewPath}
+            {previewDirections && (
+              <DirectionsRenderer
+                directions={previewDirections}
                 options={{
-                  strokeColor: "#0b63d6",
-                  strokeWeight: 5,
-                  strokeOpacity: 0.85,
+                  polylineOptions: {
+                    strokeColor: "#0b63d6",
+                    strokeWeight: 5,
+                  },
                 }}
               />
-            ) : (
-              previewDirections && (
-                <DirectionsRenderer
-                  directions={previewDirections}
-                  options={{
-                    polylineOptions: {
-                      strokeColor: "#0b63d6",
-                      strokeWeight: 5,
-                    },
-                  }}
-                />
-              )
             )}
           </GoogleMap>
 
@@ -413,6 +401,9 @@ export default function Explore() {
               const userVote = r.votes?.userVote || 0;
               const voteScore = r.votes?.score || 0;
               const voteBusy = !!voteLoadingIds[r.id];
+              const authorDisplay = r.authorUsername
+                ? `@${r.authorUsername}`
+                : (r.authorName || "Unknown user");
 
               return (
                 <div
@@ -500,6 +491,17 @@ export default function Explore() {
                           <strong style={{ fontSize: 16 }}>
                             {r.title || "Untitled Route"}
                           </strong>
+                        </div>
+
+                        <div
+                          style={{
+                            marginTop: 4,
+                            fontSize: "0.9rem",
+                            color: "var(--muted)",
+                            fontWeight: 500,
+                          }}
+                        >
+                          Posted by {authorDisplay}
                         </div>
 
                         <div className="route-meta">

@@ -449,6 +449,7 @@ app.get("/api/routes", requireAuth, async (req, res) => {
 app.get("/api/routes/public", requireAuth, async (req, res) => {
   try {
     const routes = await Route.find({ public: true })
+      .populate("owner", "name username")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -469,13 +470,16 @@ app.get("/api/routes/public", requireAuth, async (req, res) => {
  */
 app.get("/api/routes/:id", requireAuth, async (req, res) => {
   try {
-    const route = await Route.findById(req.params.id).lean();
+    const route = await Route.findById(req.params.id)
+      .populate("owner", "name username")
+      .lean();
+
     if (!route) {
       return res.status(404).json({ message: "Route not found" });
     }
 
     const isOwner = req.userId &&
-      String(route.owner) === String(req.userId);
+      String(route.owner?._id || route.owner) === String(req.userId);
     const isPublic = route.public;
 
     if (!isOwner && !isPublic) {
@@ -552,7 +556,11 @@ app.put("/api/routes/:id", requireAuth, async (req, res) => {
     Object.assign(route, update);
     await route.save();
 
-    res.json({ route: normalizeRoute(route.toObject(), req.userId) });
+    const refreshed = await Route.findById(route._id)
+      .populate("owner", "name username")
+      .lean();
+
+    res.json({ route: normalizeRoute(refreshed, req.userId) });
   } catch (err) {
     console.error("PUT /api/routes/:id error", err);
     res.status(500).json({ message: "Server error" });
@@ -598,7 +606,9 @@ app.post("/api/routes/:id/vote", requireAuth, async (req, res) => {
       });
     }
 
-    const route = await Route.findById(req.params.id);
+    const route = await Route.findById(req.params.id)
+      .populate("owner", "name username");
+
     if (!route) {
       return res.status(404).json({ message: "Route not found" });
     }
@@ -609,7 +619,8 @@ app.post("/api/routes/:id/vote", requireAuth, async (req, res) => {
       });
     }
 
-    if (String(route.owner) === String(req.userId)) {
+    const ownerId = String(route.owner?._id || route.owner);
+    if (ownerId === String(req.userId)) {
       return res.status(403).json({
         message: "You cannot vote on your own route",
       });
@@ -650,7 +661,11 @@ app.post("/api/routes/:id/vote", requireAuth, async (req, res) => {
 
     await route.save();
 
-    res.json({ route: normalizeRoute(route.toObject(), req.userId) });
+    const refreshed = await Route.findById(route._id)
+      .populate("owner", "name username")
+      .lean();
+
+    res.json({ route: normalizeRoute(refreshed, req.userId) });
   } catch (err) {
     console.error("POST /api/routes/:id/vote error", err);
     res.status(500).json({ message: "Server error" });
@@ -714,7 +729,7 @@ function buildRouteDoc(r, ownerId) {
  * Renames _id -> id to stay compatible with the localStorage schema.
  */
 function normalizeRoute(doc, userId = null) {
-  const { _id, __v, votes, ...rest } = doc;
+  const { _id, __v, votes, owner, ...rest } = doc;
 
   let userVote = 0;
 
@@ -731,9 +746,14 @@ function normalizeRoute(doc, userId = null) {
     else if (hasDownvoted) userVote = -1;
   }
 
+  const ownerObj = owner && typeof owner === "object" ? owner : null;
+
   return {
     ...rest,
     id: String(_id),
+    owner: ownerObj?._id ? String(ownerObj._id) : String(owner || ""),
+    authorName: ownerObj?.name || "",
+    authorUsername: ownerObj?.username || "",
     votes: {
       score: votes?.score || 0,
       upvoteCount: votes?.upvoters?.length || 0,
