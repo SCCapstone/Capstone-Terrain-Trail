@@ -7,7 +7,10 @@ import React, {
   useMemo,
 } from "react";
 import { useNavigate } from "react-router-dom"; // Added for navigation
-import { GoogleMap, DirectionsRenderer } from "@react-google-maps/api";
+import {
+  GoogleMap,
+  DirectionsRenderer,
+} from "@react-google-maps/api";
 import "../components/Explore.css";
 
 // Map container style
@@ -19,24 +22,28 @@ const mapContainerStyle = {
 const DEFAULT_CENTER = { lat: 34.0007, lng: -81.0348 };
 const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
 
+function authHeaders() {
+  const token = localStorage.getItem("token");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 function travelModeFromType(type) {
   if (!window.google?.maps) return null;
   const modeMap = {
     "🚗": "DRIVING",
     "🚲": "BICYCLING",
-    "scootering": "BICYCLING",
-    "skateboarding": "BICYCLING",
+    "🛴": "BICYCLING",
+    "🛹": "BICYCLING",
   };
   return window.google.maps.TravelMode[modeMap[type] || "WALKING"];
 }
 
 async function fetchPublicRoutes() {
-  const token = localStorage.getItem("token");
   const res = await fetch(`${API_BASE}/api/routes/public`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    headers: authHeaders(),
   });
 
   if (!res.ok) throw new Error(`Server error: ${res.status}`);
@@ -45,13 +52,9 @@ async function fetchPublicRoutes() {
 }
 
 async function voteOnRoute(routeId, vote) {
-  const token = localStorage.getItem("token");
   const res = await fetch(`${API_BASE}/api/routes/${routeId}/vote`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    headers: authHeaders(),
     body: JSON.stringify({ vote }),
   });
 
@@ -113,7 +116,6 @@ export default function Explore() {
       "🛹": "Skateboarding Trails",
       "🏃": "Running Trails",
       "🛴": "Scootering Trails",
-      "♿": "Wheelchair Trails",
     };
     return `Top ${modeMap[activeFilter] || "Trails"}`;
   };
@@ -280,7 +282,6 @@ export default function Explore() {
             { key: "🛹", label: "Skateboarding" },
             { key: "🏃", label: "Running" },
             { key: "🛴", label: "Scootering" },
-            { key: "♿", label: "Wheelchair" },
           ].map((opt) => (
             <button
               key={opt.key}
@@ -310,6 +311,10 @@ export default function Explore() {
             center={DEFAULT_CENTER}
             zoom={13}
             onLoad={onMapLoad}
+            options={{
+              gestureHandling: "greedy",
+              scrollwheel: true,
+            }}
           >
             {previewDirections && (
               <DirectionsRenderer
@@ -347,13 +352,6 @@ export default function Explore() {
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
-                transition: "all 0.2s ease",
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = "#e60000";
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = "#ff4d4d";
               }}
             >
               <span style={{ fontSize: "18px" }}>✕</span> Clear Map View
@@ -405,6 +403,9 @@ export default function Explore() {
               const authorDisplay = r.authorUsername
                 ? `@${r.authorUsername}`
                 : r.authorName || "Unknown user";
+
+              const routePhotos = Array.isArray(r.photos) ? r.photos : [];
+              const firstPhoto = routePhotos.length > 0 ? routePhotos[0]?.url : null;
 
               return (
                 <div
@@ -486,15 +487,31 @@ export default function Explore() {
                             display: "flex",
                             alignItems: "center",
                             gap: 8,
+                            flexWrap: "wrap",
                           }}
                         >
                           <span style={{ fontSize: 20 }}>{r.type}</span>
-                          <strong 
-                            style={{ fontSize: 16, cursor: "pointer" }} // Style added to indicate clickability
-                            onClick={() => navigate(`/app/completed/${r.id}`)} // Navigation added
+                          <strong
+                            style={{ fontSize: 16, cursor: "pointer" }}
+                            onClick={() => navigate(`/app/completed/${r.id}`)}
                           >
                             {r.title || "Untitled Route"}
                           </strong>
+
+                          {routePhotos.length > 0 && (
+                            <span
+                              style={{
+                                fontSize: 12,
+                                padding: "2px 8px",
+                                borderRadius: 999,
+                                background: "rgba(11, 99, 214, 0.10)",
+                                color: "#0b63d6",
+                                fontWeight: 700,
+                              }}
+                            >
+                              {routePhotos.length} photo{routePhotos.length > 1 ? "s" : ""}
+                            </span>
+                          )}
                         </div>
 
                         <div
@@ -539,6 +556,23 @@ export default function Explore() {
                         </button>
                       </div>
                     </div>
+
+                    {firstPhoto && (
+                      <div style={{ marginTop: 10 }}>
+                        <img
+                          src={firstPhoto}
+                          alt={`${r.title || "Trail"} preview`}
+                          style={{
+                            width: "100%",
+                            maxHeight: 190,
+                            objectFit: "cover",
+                            borderRadius: 10,
+                            border: "1px solid var(--border)",
+                            display: "block",
+                          }}
+                        />
+                      </div>
+                    )}
 
                     {r.review && (
                       <div
