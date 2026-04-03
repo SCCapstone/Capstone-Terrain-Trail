@@ -363,6 +363,10 @@ async function saveChanges({ overridePublic, redirectToExplore = false } = {}) {
   }
 }
 
+function removeHazard(idx) {
+  setHazards((prev) => prev.filter((_, i) => i !== idx));
+}
+
   function renderEditSection() {
     return (
       <section style={{ marginBottom: 20 }}>
