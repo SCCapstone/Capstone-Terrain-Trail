@@ -83,6 +83,7 @@
 .map-section {
   flex: 2;
   min-width: 0;
+  margin-bottom: 12px;
 }
 
 .map-sidebar {
@@ -240,18 +241,76 @@
    MOBILE
 ============================= */
 @media (max-width: 768px) {
+  .create-trail-container {
+    padding: 12px;
+  }
+
   .map-layout {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    align-items: start;
   }
 
   .map-section,
   .map-sidebar {
     width: 100%;
+    min-width: 0;
+  }
+
+  .map-sidebar {
+    max-height: none;
+    overflow-y: visible;
   }
 
   .map-container {
-    height: 40vh;
-    min-height: 280px;
+    height: 52vh;
+    min-height: 360px;
+  }
+
+  .card {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .transport-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .origin-input-wrapper {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .origin-input-wrapper input,
+  .origin-input-wrapper .use-location-btn {
+    width: auto;
+  }
+
+  .map-container .floating-controls {
+    top: 10px;
+    right: 10px;
+    padding: 6px;
+  }
+
+  .map-container .map-btn {
+    padding: 7px 9px !important;
+    font-size: 13px !important;
+  }
+
+  .map-controls {
+    left: 10px;
+    bottom: 10px;
+  }
+
+  .map-controls .map-btn {
+    min-width: 92px;
+  }
+
+  .hazard-menu {
+    min-width: 160px;
   }
 }
 
@@ -260,18 +319,69 @@
     padding: 12px;
   }
 
-  .transport-toolbar {
-    overflow-x: auto;
-    white-space: nowrap;
-    gap: 8px;
+  .create-trail-container h2 {
+    margin-bottom: 12px;
+  }
+
+  .map-layout {
+    gap: 12px;
+  }
+
+  .map-container {
+    height: 56vh;
+    min-height: 320px;
   }
 
   .map-controls {
-    left: 12px;
-    bottom: 12px;
+    left: 8px;
+    bottom: 8px;
   }
 
-  .map-controls .map-btn {
-    min-width: 96px;
+  .map-container .floating-controls {
+    top: 8px;
+    right: 8px;
+  }
+
+  .map-controls .map-btn,
+  .map-container .map-btn {
+    border-radius: 8px !important;
+  }
+
+  .transport-toolbar {
+    overflow-x: auto;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }
+
+  .transport-toolbar button {
+    flex: 0 0 auto;
+  }
+}
+
+/* ===== FIX MAP BUTTON TEXT IN DARK MODE ===== */
+html.dark .map-container .map-btn {
+  color: #111 !important;
+}
+
+html.dark .map-container .map-btn:disabled {
+  color: #111 !important;
+  opacity: 0.6; /* still looks disabled but readable */
+}
+
+/* move hazard + recenter above the Google watermark */
+.map-controls {
+  bottom: 80px !important;
+}
+
+@media (max-width: 768px) {
+  .map-controls {
+    bottom: 64px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .map-controls {
+    bottom: 64px !important;
   }
 }
