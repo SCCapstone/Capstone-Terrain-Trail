@@ -72,10 +72,9 @@ function calculateCustomDurationFromWalking(walkingSeconds, multiplier) {
 }
 
 function getRouteDurationText(routeType, durationValue, durationText) {
-  if (routeType === "🏃")
+  if (routeType === "🏃") {
     return calculateCustomDurationFromWalking(durationValue, 2.0);
-  if (routeType === "♿")
-    return calculateCustomDurationFromWalking(durationValue, 0.8);
+  }
   if (routeType === "🛹" || routeType === "🛴") {
     return calculateCustomDurationFromWalking(durationValue, 1.0);
   }
@@ -92,8 +91,6 @@ function getTerrainSensitivity(type) {
       return 1.0;
     case "🏃":
       return 1.7;
-    case "♿":
-      return 2.5;
     case "🚗":
       return 0.2;
     default:
@@ -198,6 +195,7 @@ function getUserLocation() {
 
 export default function CreateTrail() {
   const navigate = useNavigate();
+  const { showSnackbar } = useSnackbar();
 
   const originInputRef = useRef(null);
   const destInputRef = useRef(null);
@@ -241,8 +239,6 @@ export default function CreateTrail() {
   const [hazardMenuOpen, setHazardMenuOpen] = useState(false);
   const [hazards, setHazards] = useState([]);
   const [selectedHazardType, setSelectedHazardType] = useState(null);
-
-  const { showSnackbar } = useSnackbar();
 
   const isDarkMode = document.documentElement.classList.contains("dark");
   const darkMapStyles = [
@@ -876,7 +872,6 @@ export default function CreateTrail() {
             { key: "🛹", label: "Skateboarding" },
             { key: "🏃", label: "Running" },
             { key: "🛴", label: "Scootering" },
-            { key: "♿", label: "Wheelchair" },
           ].map((opt) => {
             const selected = routeType === opt.key;
             return (

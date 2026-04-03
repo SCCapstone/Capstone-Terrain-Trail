@@ -13,6 +13,7 @@ import "./CompletedTrail.css";
 const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:4000";
 const MAP_CONTAINER = { width: "100%", height: "420px" };
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
+const MAX_PHOTOS = 5;
 
 function authHeaders() {
   const token = localStorage.getItem("token");
@@ -47,6 +48,17 @@ function getEmojiMarkerIcon(emoji = "⚠️", size = 36) {
   };
 }
 
+function makeLocalPhotoEntries(files) {
+  return files.map((file) => ({
+    id: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
+    file,
+    previewUrl: URL.createObjectURL(file),
+    url: "",
+    caption: "",
+    uploadedAt: new Date().toISOString(),
+  }));
+}
+
 const HAZARD_EMOJI = {
   pothole: "🕳️",
   construction: "🚧",
@@ -60,13 +72,9 @@ export default function CompletedTrail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showSnackbar } = useSnackbar();
-  const undoTimeoutRef = useRef(null);
-  const lastDeletedRef = useRef(null);
-
-  const [photo, setPhoto] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(null);
 
   const mapRef = useRef(null);
+  const photoInputRef = useRef(null);
 
   const [route, setRoute] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -83,6 +91,7 @@ export default function CompletedTrail() {
   const [comment, setComment] = useState("");
 
   const [hazards, setHazards] = useState([]);
+  const [photos, setPhotos] = useState([]);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
@@ -107,11 +116,21 @@ export default function CompletedTrail() {
 
         setRoute(found);
         setHazards(Array.isArray(found.hazards) ? found.hazards : []);
+        setPhotos(
+          Array.isArray(found.photos)
+            ? found.photos.map((p, index) => ({
+                id: p.url || `saved-${index}`,
+                url: p.url,
+                previewUrl: p.url,
+                caption: p.caption || "",
+                uploadedAt: p.uploadedAt,
+              }))
+            : []
+        );
         setStars(found.review?.stars ?? 0);
         setTerrain(found.review?.terrain ?? 5);
         setIsPublic(Boolean(found.public));
         setComment(found.review?.comment || "");
-        setPhotoPreview(found.review?.photo || null);
       } catch (e) {
         console.error("fetchRoute error", e);
         navigate("/app/library", { replace: true });
@@ -122,6 +141,16 @@ export default function CompletedTrail() {
 
     fetchRoute();
   }, [id, navigate]);
+
+  useEffect(() => {
+    return () => {
+      photos.forEach((photo) => {
+        if (photo.previewUrl?.startsWith("blob:")) {
+          URL.revokeObjectURL(photo.previewUrl);
+        }
+      });
+    };
+  }, [photos]);
 
   const loadDirections = useCallback(async (r) => {
     if (!r?.origin || !r?.destination || !window.google?.maps) return;
@@ -154,64 +183,167 @@ export default function CompletedTrail() {
     }
   }, [route, loadDirections]);
 
-  async function saveChanges({ overridePublic } = {}) {
-    if (!route) return;
+  function updatePhotoCaption(index, caption) {
+    setPhotos((prev) =>
+      prev.map((p, i) => (i === index ? { ...p, caption } : p))
+    );
+  }
+  
+  function removePhoto(index) {
+    setPhotos((prev) => {
+      const target = prev[index];
+      if (target?.previewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
 
-    setSaving(true);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
+  }
+  
+  async function handlePhotoSelection(e) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
 
-    const publicValue =
-      overridePublic !== undefined ? overridePublic : isPublic;
+    const allowed = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
+    try {
+      if (photos.length + files.length > MAX_PHOTOS) {
+        throw new Error(`You can attach at most ${MAX_PHOTOS} photos.`);
+      }
+
+      for (const file of files) {
+        if (!allowed.includes(file.type)) {
+          throw new Error(`"${file.name}" must be jpg, png, or webp.`);
+        }
+      }
+
+      const newEntries = makeLocalPhotoEntries(files);
+      setPhotos((prev) => [...prev, ...newEntries]);
+      showSnackbar("Photos added", "success");
+    } catch (err) {
+      console.error("Photo selection failed:", err);
+      showSnackbar(err.message || "Could not add photos.", "error");
+    } finally {
+      if (photoInputRef.current) {
+        photoInputRef.current.value = "";
+      }
+    }
+  }
+  
+  async function uploadPendingPhotos(photoEntries) {
+    const pending = photoEntries.filter((p) => p.file instanceof File);
+
+    if (!pending.length) {
+      return photoEntries.map(({ file, previewUrl, id, ...rest }) => rest);
+    }
+
+    const formData = new FormData();
+    pending.forEach((photo) => {
+      formData.append("photos", photo.file);
+    });
+    formData.append(
+      "captions",
+      JSON.stringify(pending.map((photo) => photo.caption || ""))
+    );
+
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_BASE}/api/uploads/route-photos`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || `Upload failed: ${res.status}`);
+    }
+
+    const data = await res.json();
+    const uploadedPhotos = Array.isArray(data.photos) ? data.photos : [];
+
+    let uploadIndex = 0;
+    return photoEntries.map((photo) => {
+      if (photo.file instanceof File) {
+        const uploaded = uploadedPhotos[uploadIndex++];
+        return {
+          url: uploaded?.url || "",
+          caption: photo.caption || uploaded?.caption || "",
+          uploadedAt: uploaded?.uploadedAt || photo.uploadedAt || new Date().toISOString(),
+        };
+      }
+      return {
+        url: photo.url,
+        caption: photo.caption || "",
+        uploadedAt: photo.uploadedAt || new Date().toISOString(),
+      };
+    });
+  }
+
+async function saveChanges({ overridePublic, redirectToExplore = false } = {}) {
+  if (!route) return;
+
+  setSaving(true);
+  const publicValue =
+    overridePublic !== undefined ? overridePublic : isPublic;
+
+  try {
+    const uploadedPhotos = await uploadPendingPhotos(photos);
 
     const payload = {
       ...route,
       public: Boolean(publicValue),
       hazards,
+      photos: uploadedPhotos,
       review: {
         stars,
         terrain,
         comment,
-        photo: photoPreview,
         updatedAt: new Date().toISOString(),
       },
     };
 
-    try {
-      const res = await fetch(`${API_BASE}/api/routes/${id}`, {
-        method: "PUT",
-        headers: authHeaders(),
-        body: JSON.stringify(payload),
-      });
+    const res = await fetch(`${API_BASE}/api/routes/${id}`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    });
 
-      if (!res.ok) {
-        throw new Error(`Server error: ${res.status}`);
-      }
-
-      const data = await res.json();
-
-      setRoute(data.route);
-      setIsPublic(Boolean(data.route.public));
-      setHazards(Array.isArray(data.route.hazards) ? data.route.hazards : []);
-      setEditing(false);
-      navigate("/app/explore");
-    } catch (e) {
-      console.error("saveChanges error", e);
-      showSnackbar("Failed to save changes", "error");
-    } finally {
-      setSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || `Server error: ${res.status}`);
     }
+
+    const data = await res.json();
+
+    setRoute(data.route);
+    setIsPublic(Boolean(data.route.public));
+    setHazards(Array.isArray(data.route.hazards) ? data.route.hazards : []);
+    setPhotos(
+      Array.isArray(data.route.photos)
+        ? data.route.photos.map((p, index) => ({
+            id: p.url || `saved-${index}`,
+            url: p.url,
+            previewUrl: p.url,
+            caption: p.caption || "",
+            uploadedAt: p.uploadedAt,
+          }))
+        : []
+    );
+    setEditing(false);
+    showSnackbar("Route updated", "success");
+
+    if (redirectToExplore && data.route.public) {
+      navigate("/app/explore");
+    }
+  } catch (e) {
+    console.error("saveChanges error", e);
+    showSnackbar(e.message || "Failed to save changes", "error");
+  } finally {
+    setSaving(false);
   }
-
-  function handlePhotoUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  setPhoto(file);
-
-  const reader = new FileReader();
-  reader.onloadend = () => {
-    setPhotoPreview(reader.result);
-  };
-  reader.readAsDataURL(file);
 }
 
  async function deleteRoute() {
@@ -231,9 +363,9 @@ export default function CompletedTrail() {
   }
 }
 
-  function removeHazard(idx) {
-    setHazards((prev) => prev.filter((_, i) => i !== idx));
-  }
+function removeHazard(idx) {
+  setHazards((prev) => prev.filter((_, i) => i !== idx));
+}
 
   function renderEditSection() {
     return (
@@ -259,7 +391,6 @@ export default function CompletedTrail() {
           <option>🛹</option>
           <option>🛴</option>
           <option>🏃</option>
-          <option>♿</option>
         </select>
 
         <div>
@@ -286,7 +417,6 @@ export default function CompletedTrail() {
 
   const isRecordedRoute = Array.isArray(route?.path) && route.path.length > 1;
 
-
   return (
     <div className="completed-trail-container">
       <h1>Completed Trail</h1>
@@ -312,33 +442,30 @@ export default function CompletedTrail() {
                 mapTypeControl: false,
               }}
             >
-              
-
-            {isRecordedRoute ? (
-              <Polyline
-                path={route.path}
-                options={{
-                  strokeColor: "#e63946",
-                  strokeWeight: 4,
-                  strokeOpacity: 0.9,
-                }}
-              />
-            ) : (
-              directionsResult && (
-                <DirectionsRenderer
-                  directions={directionsResult}
+              {isRecordedRoute ? (
+                <Polyline
+                  path={route.path}
                   options={{
-                    suppressMarkers: false,
-                    polylineOptions: {
-                      strokeColor: "#0b63d6",
-                      strokeWeight: 5,
-                      strokeOpacity: 0.85,
-                    },
+                    strokeColor: "#e63946",
+                    strokeWeight: 4,
+                    strokeOpacity: 0.9,
                   }}
                 />
-              )
-            )}
-
+              ) : (
+                directionsResult && (
+                  <DirectionsRenderer
+                    directions={directionsResult}
+                    options={{
+                      suppressMarkers: false,
+                      polylineOptions: {
+                        strokeColor: "#0b63d6",
+                        strokeWeight: 5,
+                        strokeOpacity: 0.85,
+                      },
+                    }}
+                  />
+                )
+              )}
 
               {hazards.map((h, idx) => (
                 <Marker
@@ -388,6 +515,99 @@ export default function CompletedTrail() {
             </p>
           </div>
 
+          <div
+            style={{
+              marginTop: 16,
+              border: "1px solid var(--border)",
+              borderRadius: 12,
+              padding: 12,
+              background: "var(--surface)",
+            }}
+          >
+            <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <h3 style={{ margin: 0 }}>Trail Photos</h3>
+              <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                {photos.length}/{MAX_PHOTOS} attached
+              </span>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                onChange={handlePhotoSelection}
+              />
+              <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                jpg, png, webp
+              </span>
+            </div>
+
+            {photos.length === 0 ? (
+              <div style={{ marginTop: 10, color: "var(--muted)" }}>
+                No photos added yet.
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: 12,
+                  marginTop: 12,
+                }}
+              >
+                {photos.map((photo, index) => (
+                  <div
+                    key={photo.id || photo.url || index}
+                    style={{
+                      border: "1px solid var(--border)",
+                      borderRadius: 10,
+                      padding: 10,
+                      background: "var(--surface-2, var(--surface))",
+                    }}
+                  >
+                    <img
+                      src={photo.previewUrl || photo.url}
+                      alt={photo.caption || `Trail photo ${index + 1}`}
+                      style={{
+                        width: "100%",
+                        height: 140,
+                        objectFit: "cover",
+                        borderRadius: 8,
+                        display: "block",
+                        marginBottom: 8,
+                      }}
+                    />
+
+                    <input
+                      type="text"
+                      placeholder="Optional caption"
+                      value={photo.caption || ""}
+                      onChange={(e) => updatePhotoCaption(index, e.target.value)}
+                      style={{ width: "100%", marginBottom: 8, padding: 8 }}
+                    />
+
+                    <button
+                      onClick={() => removePhoto(index)}
+                      style={{
+                        width: "100%",
+                        border: "1px solid #c62828",
+                        color: "#c62828",
+                        background: "transparent",
+                        borderRadius: 6,
+                        padding: "6px 10px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Remove Photo
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {hazards.length > 0 && (
             <div style={{ marginTop: 16 }}>
               <h3 style={{ marginBottom: 8 }}>Hazards ({hazards.length})</h3>
@@ -411,7 +631,6 @@ export default function CompletedTrail() {
                       background: "var(--surface)",
                     }}
                   >
-                    
                     <span>
                       {HAZARD_EMOJI[h.type] || "⚠️"}{" "}
                       <strong>{h.type}</strong>{" "}
@@ -457,28 +676,32 @@ export default function CompletedTrail() {
             <button onClick={() => saveChanges()} disabled={saving} aria-label="Save route">
               {saving ? "Saving..." : "Save"}
             </button>
-            {!confirmingDelete ? (
-            <button
-              onClick={() => setConfirmingDelete(true)}
-              className="delete-btn"
-            >
-              Delete
+            <button onClick={() => setEditing((v) => !v)}>
+              {editing ? "Hide Edit" : "Edit"}
             </button>
-          ) : (
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={deleteRoute}
-                className="delete-btn"
-                style={{ background: "red", color: "white" }}
-              >
-                Confirm
-              </button>
 
-              <button onClick={() => setConfirmingDelete(false)}>
-                Cancel
+            {!confirmingDelete ? (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="delete-btn"
+              >
+                Delete
               </button>
-            </div>
-          )}
+            ) : (
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={deleteRoute}
+                  className="delete-btn"
+                  style={{ background: "red", color: "white" }}
+                >
+                  Confirm
+                </button>
+
+                <button onClick={() => setConfirmingDelete(false)}>
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
 
           <div style={{ marginTop: 12 }}>
@@ -540,43 +763,6 @@ export default function CompletedTrail() {
         </div>
 
         <div style={{ marginBottom: 12 }}>
-  <label style={{ display: "block", marginBottom: 6 }}>
-    Add Route Photo (optional)
-  </label>
-
-  <input
-    type="file"
-    accept="image/*"
-    onChange={handlePhotoUpload}
-  />
-
-  {photoPreview && (
-    <div style={{ marginTop: 10 }}>
-      <img
-        src={photoPreview}
-        alt="Route preview"
-        style={{
-          width: "100%",
-          maxHeight: 200,
-          objectFit: "cover",
-          borderRadius: 8,
-        }}
-      />
-
-      <button
-        onClick={() => {
-          setPhoto(null);
-          setPhotoPreview(null);
-        }}
-        style={{ marginTop: 6 }}
-      >
-        Remove photo
-      </button>
-    </div>
-  )}
-</div>
-
-        <div style={{ marginBottom: 12 }}>
           <label style={{ display: "block", marginBottom: 6 }}>Comment</label>
           <textarea
             value={comment}
@@ -595,7 +781,7 @@ export default function CompletedTrail() {
             onClick={() => {
               const next = !isPublic;
               setIsPublic(next);
-              saveChanges({ overridePublic: next });
+              saveChanges({ overridePublic: next, redirectToExplore: true });
             }}
           >
             Toggle Public & Save

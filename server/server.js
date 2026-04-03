@@ -5,8 +5,18 @@ import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import NodeCache from "node-cache";
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
+import streamifier from "streamifier";
+
 
 dotenv.config();
+
+cloudinary.config({
+  cloud_name: (process.env.CLOUDINARY_CLOUD_NAME || "").trim(),
+  api_key: (process.env.CLOUDINARY_API_KEY || "").trim(),
+  api_secret: (process.env.CLOUDINARY_API_SECRET || "").trim(),
+});
 
 const app = express();
 
@@ -26,7 +36,7 @@ app.use(cors({
   maxAge: 86400,
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 const cache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
 
@@ -34,8 +44,8 @@ app.get("/", (req, res) => {
   res.send("API is running");
 });
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", version: "1.0" });
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", version: "1.6" });
 });
 
 const userSchema = new mongoose.Schema(
@@ -55,6 +65,16 @@ const userSchema = new mongoose.Schema(
 );
 
 const User = mongoose.models.User || mongoose.model("User", userSchema);
+
+
+const routePhotoSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true, trim: true },
+    caption: { type: String, default: "", trim: true },
+    uploadedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
 
 /**
  *
@@ -113,11 +133,23 @@ const routeSchema = new mongoose.Schema(
       }],
       default: [],
     },
+    photos: {
+      type: [routePhotoSchema],
+      default: [],
+      validate: {
+        validator(arr) {
+          return Array.isArray(arr) && arr.length <= 5;
+        },
+        message: "A route can have at most 5 photos.",
+      },
+    },
   },
   { timestamps: true }
 );
 
 const Route = mongoose.models.Route || mongoose.model("Route", routeSchema);
+
+// HELPERS
 
 /* Auth middleware for settings routes */
 
@@ -142,6 +174,180 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 }
+
+function normalizeRouteType(type) {
+  const allowed = ["👣", "🚲", "🚗", "🛹", "🏃", "🛴"];
+  return allowed.includes(type) ? type : "👣";
+}
+
+/**
+ * Safely coerces hazards to an array of objects regardless of whether
+ * the client sent a real array, a JSON-stringified array, or nothing.
+ */
+function parseHazards(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function isAllowedPhotoUrl(url) {
+  const normalized = String(url || "").trim().toLowerCase();
+  return normalized.startsWith("http://") || normalized.startsWith("https://");
+}
+
+function parsePhotos(raw) {
+  if (!raw) return [];
+  let arr = raw;
+
+  if (typeof raw === "string") {
+    try {
+      arr = JSON.parse(raw);
+    } catch {
+      arr = [];
+    }
+  }
+
+  if (!Array.isArray(arr)) return [];
+
+  const cleaned = arr
+    .filter((p) => p && typeof p.url === "string" && p.url.trim())
+    .map((p) => ({
+      url: String(p.url).trim(),
+      caption: typeof p.caption === "string" ? p.caption.trim() : "",
+      uploadedAt: p.uploadedAt ? new Date(p.uploadedAt) : new Date(),
+    }));
+
+  if (cleaned.length > 5) {
+    throw new Error("You can attach at most 5 photos to a route.");
+  }
+
+  for (const photo of cleaned) {
+    if (!isAllowedPhotoUrl(photo.url)) {
+      throw new Error("Only jpg, png, and webp photo URLs are allowed.");
+    }
+  }
+
+  return cleaned;
+}
+
+
+/** Maps a client-side route object -> Mongoose document fields */
+function buildRouteDoc(r, ownerId) {
+  return {
+    clientId: r.id || r.clientId || null,
+    owner: ownerId,
+    title: r.title || "",
+    origin: r.origin || "",
+    destination: r.destination || "",
+    distance: r.distance || "",
+    duration: r.duration || "",
+    type: normalizeRouteType(r.type || "👣"),
+    tags: Array.isArray(r.tags) ? r.tags : [],
+    public: Boolean(r.public),
+    review: r.review
+      ? {
+        stars: Number(r.review.stars) || 0,
+        terrain: r.review.terrain != null
+          ? Number(r.review.terrain)
+          : 5,
+        comment: r.review.comment || "",
+        updatedAt: r.review.updatedAt
+          ? new Date(r.review.updatedAt)
+          : new Date(),
+      }
+      : undefined,
+    path: Array.isArray(r.path) ? r.path : [],
+    encodedPolyline: r.encodedPolyline || null,
+    bounds: r.bounds || undefined,
+    hazards: parseHazards(r.hazards),
+    photos: parsePhotos(r.photos),
+  };
+}
+
+/**
+ * Converts a Mongoose lean doc -> the shape the frontend expects.
+ * Renames _id -> id to stay compatible with the localStorage schema.
+ */
+function normalizeRoute(doc, userId = null) {
+  const { _id, __v, votes, owner, photos, type, ...rest } = doc;
+
+  let userVote = 0;
+
+  if (userId && votes) {
+    const uid = String(userId);
+
+    const hasUpvoted = Array.isArray(votes.upvoters) &&
+      votes.upvoters.some((id) => String(id) === uid);
+
+    const hasDownvoted = Array.isArray(votes.downvoters) &&
+      votes.downvoters.some((id) => String(id) === uid);
+
+    if (hasUpvoted) userVote = 1;
+    else if (hasDownvoted) userVote = -1;
+  }
+
+  const ownerObj = owner && typeof owner === "object" ? owner : null;
+
+  return {
+    ...rest,
+    id: String(_id),
+    type: normalizeRouteType(type),
+    photos: Array.isArray(photos) ? photos : [],
+    owner: ownerObj?._id ? String(ownerObj._id) : String(owner || ""),
+    authorName: ownerObj?.name || "",
+    authorUsername: ownerObj?.username || "",
+    votes: {
+      score: votes?.score || 0,
+      upvoteCount: votes?.upvoters?.length || 0,
+      downvoteCount: votes?.downvoters?.length || 0,
+      userVote,
+    },
+  };
+}
+
+function uploadBufferToCloudinary(buffer) {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        cloud_name: (process.env.CLOUDINARY_CLOUD_NAME || "").trim(),
+        api_key: (process.env.CLOUDINARY_API_KEY || "").trim(),
+        api_secret: (process.env.CLOUDINARY_API_SECRET || "").trim(),
+        folder: "colatrails/routes",
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+
+    streamifier.createReadStream(buffer).pipe(uploadStream);
+  });
+}
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    files: 5,
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!allowed.includes(file.mimetype)) {
+      cb(new Error("Only jpg, png, and webp files are allowed."));
+      return;
+    }
+    cb(null, true);
+  },
+});
 
 /* ===== Auth routes ===== */
 app.post("/api/signup", async (req, res) => {
@@ -421,6 +627,48 @@ app.delete("/api/account", requireAuth, async (req, res) => {
   }
 });
 
+/* ==== Photo upload ==== */
+
+app.post(
+  "/api/uploads/route-photos",
+  requireAuth,
+  upload.array("photos", 5),
+  async (req, res, next) => {
+    try {
+      const files = Array.isArray(req.files) ? req.files : [];
+      const captionsRaw = req.body?.captions;
+
+      let captions = [];
+      if (typeof captionsRaw === "string") {
+        try {
+          captions = JSON.parse(captionsRaw);
+        } catch {
+          captions = [];
+        }
+      } else if (Array.isArray(captionsRaw)) {
+        captions = captionsRaw;
+      }
+
+      const photos = await Promise.all(
+        files.map(async (file, index) => {
+          const result = await uploadBufferToCloudinary(file.buffer);
+
+          return {
+            url: result.secure_url,
+            caption:
+              typeof captions[index] === "string" ? captions[index].trim() : "",
+            uploadedAt: new Date(),
+          };
+        })
+      );
+
+      res.status(201).json({ photos });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // ROUTES API
 
 /**
@@ -529,6 +777,14 @@ app.post("/api/routes", requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error("POST /api/routes error", err);
+
+    if (err?.name === "ValidationError") {
+      return res.status(400).json({ message: err.message });
+    }
+    if (err?.message) {
+      return res.status(400).json({ message: err.message });
+    }
+
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -563,9 +819,18 @@ app.put("/api/routes/:id", requireAuth, async (req, res) => {
     res.json({ route: normalizeRoute(refreshed, req.userId) });
   } catch (err) {
     console.error("PUT /api/routes/:id error", err);
+
+    if (err?.name === "ValidationError") {
+      return res.status(400).json({ message: err.message });
+    }
+    if (err?.message) {
+      return res.status(400).json({ message: err.message });
+    }
+
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 /**
  * DELETE /api/routes/:id
@@ -672,96 +937,23 @@ app.post("/api/routes/:id/vote", requireAuth, async (req, res) => {
   }
 });
 
-// HELPERS
-
-/**
- * Safely coerces hazards to an array of objects regardless of whether
- * the client sent a real array, a JSON-stringified array, or nothing.
- */
-function parseHazards(raw) {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (_) {
-      return [];
+app.use((err, _req, res, _next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({ message: "Each photo must be 5MB or smaller." });
     }
-  }
-  return [];
-}
-
-/** Maps a client-side route object -> Mongoose document fields */
-function buildRouteDoc(r, ownerId) {
-  return {
-    clientId: r.id || r.clientId || null,
-    owner: ownerId,
-    title: r.title || "",
-    origin: r.origin || "",
-    destination: r.destination || "",
-    distance: r.distance || "",
-    duration: r.duration || "",
-    type: r.type || "👣",
-    tags: Array.isArray(r.tags) ? r.tags : [],
-    public: Boolean(r.public),
-    review: r.review
-      ? {
-        stars: Number(r.review.stars) || 0,
-        terrain: r.review.terrain != null
-          ? Number(r.review.terrain)
-          : 5,
-        comment: r.review.comment || "",
-        updatedAt: r.review.updatedAt
-          ? new Date(r.review.updatedAt)
-          : new Date(),
-      }
-      : undefined,
-    path: Array.isArray(r.path) ? r.path : [],
-    encodedPolyline: r.encodedPolyline || null,
-    bounds: r.bounds || undefined,
-    hazards: parseHazards(r.hazards),
-  };
-}
-
-/**
- * Converts a Mongoose lean doc -> the shape the frontend expects.
- * Renames _id -> id to stay compatible with the localStorage schema.
- */
-function normalizeRoute(doc, userId = null) {
-  const { _id, __v, votes, owner, ...rest } = doc;
-
-  let userVote = 0;
-
-  if (userId && votes) {
-    const uid = String(userId);
-
-    const hasUpvoted = Array.isArray(votes.upvoters) &&
-      votes.upvoters.some((id) => String(id) === uid);
-
-    const hasDownvoted = Array.isArray(votes.downvoters) &&
-      votes.downvoters.some((id) => String(id) === uid);
-
-    if (hasUpvoted) userVote = 1;
-    else if (hasDownvoted) userVote = -1;
+    if (err.code === "LIMIT_FILE_COUNT") {
+      return res.status(400).json({ message: "You can upload at most 5 photos." });
+    }
+    return res.status(400).json({ message: err.message });
   }
 
-  const ownerObj = owner && typeof owner === "object" ? owner : null;
+  if (err?.message) {
+    return res.status(400).json({ message: err.message });
+  }
 
-  return {
-    ...rest,
-    id: String(_id),
-    owner: ownerObj?._id ? String(ownerObj._id) : String(owner || ""),
-    authorName: ownerObj?.name || "",
-    authorUsername: ownerObj?.username || "",
-    votes: {
-      score: votes?.score || 0,
-      upvoteCount: votes?.upvoters?.length || 0,
-      downvoteCount: votes?.downvoters?.length || 0,
-      userVote,
-    },
-  };
-}
+  return res.status(500).json({ message: "Server error" });
+});
 
 async function start() {
   try {

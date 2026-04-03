@@ -1,5 +1,5 @@
 ﻿/* global google */
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { GoogleMap, DirectionsRenderer, Marker, Polyline } from "@react-google-maps/api";
 import { useSnackbar } from "../components/Snackbar.jsx";
 import "../components/Library.css";
@@ -35,11 +35,21 @@ function authHeaders() {
   };
 }
 
+function normalizeRouteType(type) {
+  const allowed = ["👣", "🚲", "🚗", "🛹", "🏃", "🛴"];
+  return allowed.includes(type) ? type : "👣";
+}
+
 function travelModeFromType(type) {
   if (!window.google?.maps) return null;
-  if (type === "🚲" || type === "🛴" || type === "🛹")
+  const normalized = normalizeRouteType(type);
+
+  if (normalized === "🚲" || normalized === "🛴" || normalized === "🛹") {
     return window.google.maps.TravelMode.BICYCLING;
-  if (type === "🚗") return window.google.maps.TravelMode.DRIVING;
+  }
+  if (normalized === "🚗") {
+    return window.google.maps.TravelMode.DRIVING;
+  }
   return window.google.maps.TravelMode.WALKING;
 }
 
@@ -116,6 +126,7 @@ export default function Library() {
   const [loadedReview, setLoadedReview] = useState(null);
   const [loadedHazards, setLoadedHazards] = useState([]);
   const [loadedPath,    setLoadedPath]    = useState([]);
+  const [loadedPhotos, setLoadedPhotos] = useState([]);
 
   // ── fetch all routes for this user ────────────────────────────────────────
  
@@ -127,7 +138,15 @@ export default function Library() {
       if (res.status === 401) throw new Error("Not authenticated");
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
-      setSavedRoutes(Array.isArray(data.routes) ? data.routes : []);
+      const routes = Array.isArray(data.routes) ? data.routes : [];
+
+      setSavedRoutes(
+        routes.map((route) => ({
+          ...route,
+          type: normalizeRouteType(route.type),
+          photos: Array.isArray(route.photos) ? route.photos : [],
+        }))
+      );
     } catch (e) {
       console.error("loadRoutes error", e);
       setFetchError("Could not load your routes. Please try again.");
@@ -143,8 +162,9 @@ export default function Library() {
     loadRoutes();
   }, [loadRoutes]);
  
-  const routeTypeOptions = Array.from(
-    new Set(savedRoutes.map((r) => r.type).filter(Boolean))
+  const routeTypeOptions = useMemo(
+    () => Array.from(new Set(savedRoutes.map((r) => r.type).filter(Boolean))),
+    [savedRoutes]
   );
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -161,36 +181,53 @@ export default function Library() {
     (hasDistanceFilter ? 1 : 0) +
     (hasDurationFilter ? 1 : 0);
 
-  const filteredRoutes = savedRoutes.filter((route) => {
-    const title = String(route.title || "").toLowerCase();
-    const origin = String(route.origin || "").toLowerCase();
-    const destination = String(route.destination || "").toLowerCase();
+  const filteredRoutes = useMemo(() => {
+    return savedRoutes.filter((route) => {
+      const title = String(route.title || "").toLowerCase();
+      const origin = String(route.origin || "").toLowerCase();
+      const destination = String(route.destination || "").toLowerCase();
 
-    const routeTags = Array.isArray(route.tags) ? route.tags : [];
-    const matchesUSC =
-      filterUSC === "all" ||
-      (filterUSC === "usc" && routeTags.includes("USC"));
+      const routeTags = Array.isArray(route.tags) ? route.tags : [];
+      const matchesUSC =
+        filterUSC === "all" ||
+        (filterUSC === "usc" && routeTags.includes("USC"));
 
-    const matchesSearch =
-      !normalizedQuery ||
-      title.includes(normalizedQuery) ||
-      origin.includes(normalizedQuery) ||
-      destination.includes(normalizedQuery);
+      const matchesSearch =
+        !normalizedQuery ||
+        title.includes(normalizedQuery) ||
+        origin.includes(normalizedQuery) ||
+        destination.includes(normalizedQuery);
 
-    const matchesType = filterType === "all" || route.type === filterType;
+      const matchesType = filterType === "all" || route.type === filterType;
 
-    const routeDistanceMiles = parseDistanceToMiles(route.distance);
-    const matchesDistance =
-      !hasDistanceFilter ||
-      (routeDistanceMiles !== null && routeDistanceMiles <= maxDistanceValue);
+      const routeDistanceMiles = parseDistanceToMiles(route.distance);
+      const matchesDistance =
+        !hasDistanceFilter ||
+        (routeDistanceMiles !== null && routeDistanceMiles <= maxDistanceValue);
 
-    const routeDurationMinutes = parseDurationToMinutes(route.duration);
-    const matchesDuration =
-      !hasDurationFilter ||
-      (routeDurationMinutes !== null && routeDurationMinutes <= maxDurationValue);
+      const routeDurationMinutes = parseDurationToMinutes(route.duration);
+      const matchesDuration =
+        !hasDurationFilter ||
+        (routeDurationMinutes !== null && routeDurationMinutes <= maxDurationValue);
 
-      return matchesSearch && matchesType && matchesUSC && matchesDistance && matchesDuration;
-  });
+      return (
+        matchesSearch &&
+        matchesType &&
+        matchesUSC &&
+        matchesDistance &&
+        matchesDuration
+      );
+    });
+  }, [
+    savedRoutes,
+    normalizedQuery,
+    filterType,
+    filterUSC,
+    hasDistanceFilter,
+    hasDurationFilter,
+    maxDistanceValue,
+    maxDurationValue,
+  ]);
 
   function clearFilters() {
     setFilterType("all");
@@ -202,67 +239,66 @@ export default function Library() {
   // ── load route onto map ───────────────────────────────────────────────────
  
   async function loadRoute(route) {
-  if (!window.google?.maps) return;
+    if (!window.google?.maps) return;
 
-  setLoadingRouteId(route.id);
-  setSelectedRouteId(route.id);
-  setLoadedReview(null);
-  setLoadedHazards([]);
-  setLoadedPath([]);
-
-  try {
+    setLoadingRouteId(route.id);
+    setSelectedRouteId(route.id);
     setLoadedReview(route.review || null);
     setLoadedHazards(Array.isArray(route.hazards) ? route.hazards : []);
+    setLoadedPath([]);
+    setLoadedPhotos(Array.isArray(route.photos) ? route.photos : []);
 
-    // Recorded routes: use the saved GPS path only.
-    if (route.recorded === true && Array.isArray(route.path) && route.path.length > 1) {
-      setDirectionsResult(null);
-      setLoadedPath(route.path);
+    try {
+      if (route.recorded === true && Array.isArray(route.path) && route.path.length > 1) {
+        setDirectionsResult(null);
+        setLoadedPath(route.path);
 
-      const bounds = new window.google.maps.LatLngBounds();
-      route.path.forEach((p) => bounds.extend(p));
-      mapRef.current?.fitBounds(bounds, 40);
+        const bounds = new window.google.maps.LatLngBounds();
+        route.path.forEach((p) => bounds.extend(p));
+        mapRef.current?.fitBounds(bounds, 40);
 
-      const first = route.path[0];
-      if (first) {
-        setOriginPosition(first);
-        setMapCenter(first);
+        const first = route.path[0];
+        if (first) {
+          setOriginPosition(first);
+          setMapCenter(first);
+        }
+
+        setDistanceText(route.distance || "");
+        setDurationText(route.duration || "");
+        return;
       }
 
-      setDistanceText(route.distance || "");
-      setDurationText(route.duration || "");
-      return;
+      const service = new window.google.maps.DirectionsService();
+      const result = await service.route({
+        origin: route.origin,
+        destination: route.destination,
+        travelMode: travelModeFromType(route.type),
+        unitSystem: window.google.maps.UnitSystem.IMPERIAL,
+      });
+
+      setDirectionsResult(result);
+
+      const leg = result.routes[0].legs[0];
+      setDistanceText(leg.distance?.text || route.distance || "");
+      setDurationText(leg.duration?.text || route.duration || "");
+
+      const lat = leg.start_location.lat();
+      const lng = leg.start_location.lng();
+      setOriginPosition({ lat, lng });
+      setMapCenter({ lat, lng });
+
+      mapRef.current?.fitBounds(result.routes[0].bounds);
+    } catch (err) {
+      console.error("Failed to load route:", err);
+      showSnackbar("Could not load route.", "error");
+      setLoadedReview(null);
+      setLoadedHazards([]);
+      setLoadedPath([]);
+      setLoadedPhotos([]);
+    } finally {
+      setLoadingRouteId(null);
     }
-
-    // Normal routes: keep Google Directions exactly as before.
-    const service = new window.google.maps.DirectionsService();
-    const result = await service.route({
-      origin: route.origin,
-      destination: route.destination,
-      travelMode: travelModeFromType(route.type),
-      unitSystem: window.google.maps.UnitSystem.IMPERIAL,
-    });
-
-    setDirectionsResult(result);
-
-    const leg = result.routes[0].legs[0];
-    setDistanceText(leg.distance?.text || route.distance || "");
-    setDurationText(leg.duration?.text || route.duration || "");
-
-    const lat = leg.start_location.lat();
-    const lng = leg.start_location.lng();
-    setOriginPosition({ lat, lng });
-    setMapCenter({ lat, lng });
-
-    mapRef.current?.fitBounds(result.routes[0].bounds);
-  } catch (err) {
-    console.error("Failed to load route:", err);
-    alert("Could not load route.");
-    setLoadedReview(null);
-  } finally {
-    setLoadingRouteId(null);
   }
-}
 
   // ── delete ────────────────────────────────────────────────────────────────
  function requestDeleteRoute(routeId) {
@@ -302,6 +338,7 @@ async function performDeleteRoute(routeId) {
       setLoadedReview(null);
       setLoadedHazards([]);
       setLoadedPath([]);
+      setLoadedPhotos([]);
     }
 
     showSnackbar("Route deleted successfully.", "success");
@@ -333,7 +370,7 @@ async function performDeleteRoute(routeId) {
       destination: "",
       distance: "",
       duration: "",
-      type: "",
+      type: "👣",
       isUSC: false,
     });
   }
@@ -357,7 +394,7 @@ async function performDeleteRoute(routeId) {
     destination,
     distance: editForm.distance.trim(),
     duration: editForm.duration.trim(),
-    type: editForm.type.trim(),
+    type: normalizeRouteType(editForm.type),
     tags: editForm.isUSC ? ["USC"] : [],
   };
 
@@ -374,7 +411,15 @@ async function performDeleteRoute(routeId) {
     const data = await res.json();
 
     setSavedRoutes((prev) =>
-      prev.map((r) => (r.id === routeId ? data.route : r))
+      prev.map((r) =>
+        r.id === routeId
+          ? {
+            ...data.route,
+            type: normalizeRouteType(data.route.type),
+            photos: Array.isArray(data.route.photos) ? data.route.photos : [],
+          }
+        : r
+      )
     );
 
     cancelEditingRoute();
@@ -401,225 +446,384 @@ async function performDeleteRoute(routeId) {
   return (
     <div style={{ padding: "1.5rem", maxWidth: 1200, margin: "0 auto" }}>
       <h2>Library</h2>
- 
-      {/* Search */}
+
       <input
         type="text"
         placeholder="Search saved routes..."
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         style={{
-          width: "100%", padding: "10px 12px", marginBottom: 12,
-          borderRadius: 8, border: "1px solid var(--border)",
-          background: "var(--surface)", color: "var(--text)", fontSize: 14,
+          width: "100%",
+          padding: "10px 12px",
+          marginBottom: 12,
+          borderRadius: 8,
+          border: "1px solid var(--border)",
+          background: "var(--surface)",
+          color: "var(--text)",
+          fontSize: 14,
         }}
       />
- 
-      {/* Filter toggle */}
+
       <div style={{ marginBottom: 16 }}>
         <button
           onClick={() => setShowFilters((c) => !c)}
           style={{
-            border: "1px solid var(--border)", background: "var(--surface)",
-            color: "var(--text)", padding: "8px 12px", borderRadius: 8, cursor: "pointer",
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+            color: "var(--text)",
+            padding: "8px 12px",
+            borderRadius: 8,
+            cursor: "pointer",
           }}
         >
           {showFilters ? "Hide Filters" : "Filter"}
           {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
         </button>
       </div>
- 
+
       {showFilters && (
         <div
           style={{
-            border: "1px solid var(--border)", background: "var(--surface)",
-            borderRadius: 8, padding: 12, marginBottom: 16,
-            display: "grid", gap: 10,
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 16,
+            display: "grid",
+            gap: 10,
             gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
             alignItems: "end",
           }}
         >
-          {/* Route type */}
           <div>
-            <label htmlFor="route-type-filter" style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--muted)" }}>
+            <label
+              htmlFor="route-type-filter"
+              style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--muted)" }}
+            >
               Route Type
             </label>
             <select
-              id="route-type-filter" value={filterType}
+              id="route-type-filter"
+              value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              style={{ width: "100%", padding: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", borderRadius: 6 }}
+              style={{
+                width: "100%",
+                padding: 8,
+                border: "1px solid var(--border)",
+                background: "var(--surface-2)",
+                color: "var(--text)",
+                borderRadius: 6,
+              }}
             >
               <option value="all">All types</option>
-              {routeTypeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+              {routeTypeOptions.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
             </select>
           </div>
- 
-          {/* USC tag */}
+
           <div>
-            <label htmlFor="usc-filter" style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--muted)" }}>
+            <label
+              htmlFor="usc-filter"
+              style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--muted)" }}
+            >
               USC Tag
             </label>
             <select
-              id="usc-filter" value={filterUSC}
+              id="usc-filter"
+              value={filterUSC}
               onChange={(e) => setFilterUSC(e.target.value)}
-              style={{ width: "100%", padding: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", borderRadius: 6 }}
+              style={{
+                width: "100%",
+                padding: 8,
+                border: "1px solid var(--border)",
+                background: "var(--surface-2)",
+                color: "var(--text)",
+                borderRadius: 6,
+              }}
             >
               <option value="all">All routes</option>
               <option value="usc">USC only</option>
             </select>
           </div>
- 
-          {/* Max distance */}
+
           <div>
-            <label htmlFor="max-distance-filter" style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--muted)" }}>
+            <label
+              htmlFor="max-distance-filter"
+              style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--muted)" }}
+            >
               Max Distance (mi)
             </label>
             <input
-              id="max-distance-filter" type="number" min="0" step="0.1"
-              value={maxDistanceMiles} onChange={(e) => setMaxDistanceMiles(e.target.value)}
+              id="max-distance-filter"
+              type="number"
+              min="0"
+              step="0.1"
+              value={maxDistanceMiles}
+              onChange={(e) => setMaxDistanceMiles(e.target.value)}
               placeholder="e.g. 1.5"
-              style={{ width: "100%", padding: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", borderRadius: 6 }}
+              style={{
+                width: "100%",
+                padding: 8,
+                border: "1px solid var(--border)",
+                background: "var(--surface-2)",
+                color: "var(--text)",
+                borderRadius: 6,
+              }}
             />
           </div>
- 
-          {/* Max duration */}
+
           <div>
-            <label htmlFor="max-duration-filter" style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--muted)" }}>
+            <label
+              htmlFor="max-duration-filter"
+              style={{ display: "block", fontSize: 13, marginBottom: 4, color: "var(--muted)" }}
+            >
               Max Time (min)
             </label>
             <input
-              id="max-duration-filter" type="number" min="0" step="1"
-              value={maxDurationMinutes} onChange={(e) => setMaxDurationMinutes(e.target.value)}
+              id="max-duration-filter"
+              type="number"
+              min="0"
+              step="1"
+              value={maxDurationMinutes}
+              onChange={(e) => setMaxDurationMinutes(e.target.value)}
               placeholder="e.g. 20"
-              style={{ width: "100%", padding: 8, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", borderRadius: 6 }}
+              style={{
+                width: "100%",
+                padding: 8,
+                border: "1px solid var(--border)",
+                background: "var(--surface-2)",
+                color: "var(--text)",
+                borderRadius: 6,
+              }}
             />
           </div>
- 
-          {/* Clear */}
+
           <div>
             <button
               onClick={clearFilters}
-              style={{ width: "100%", border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", padding: "8px 12px", borderRadius: 8, cursor: "pointer" }}
+              style={{
+                width: "100%",
+                border: "1px solid var(--border)",
+                background: "var(--surface-2)",
+                color: "var(--text)",
+                padding: "8px 12px",
+                borderRadius: 8,
+                cursor: "pointer",
+              }}
             >
               Clear Filters
             </button>
           </div>
         </div>
       )}
- 
-        
 
-      <div style={{ display: "flex", gap: 16 }}>
-        {/* Map */}
-        <div style={{ flex: 1 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, alignItems: "start" }}>
+        <div>
           <GoogleMap
-          mapContainerStyle={containerStyle}
-          center={mapCenter}
-          zoom={14}
-          onLoad={(m) => { setMap(m); mapRef.current = m; }}
-          onUnmount={() => { setMap(null); mapRef.current = null; }}
-          options={{ fullscreenControl: false, streetViewControl: false, mapTypeControl: false }}
-        >
-          {loadedPath.length > 1 ? (
-            <Polyline
-              path={loadedPath}
-              options={{
-                strokeColor: "#e63946",
-                strokeWeight: 4,
-                strokeOpacity: 0.9,
-              }}
-            />
-          ) : (
-            directionsResult && <DirectionsRenderer directions={directionsResult} />
-          )}
+            mapContainerStyle={containerStyle}
+            center={mapCenter}
+            zoom={14}
+            onLoad={(m) => {
+              setMap(m);
+              mapRef.current = m;
+            }}
+            onUnmount={() => {
+              setMap(null);
+              mapRef.current = null;
+            }}
+            options={{
+              fullscreenControl: false,
+              streetViewControl: false,
+              mapTypeControl: false,
+            }}
+          >
+            {loadedPath.length > 1 ? (
+              <Polyline
+                path={loadedPath}
+                options={{
+                  strokeColor: "#e63946",
+                  strokeWeight: 4,
+                  strokeOpacity: 0.9,
+                }}
+              />
+            ) : (
+              directionsResult && <DirectionsRenderer directions={directionsResult} />
+            )}
 
-          {loadedHazards.map((h, idx) => (
-            <Marker
-              key={idx}
-              position={{ lat: h.lat, lng: h.lng }}
-              icon={getEmojiMarkerIcon(HAZARD_EMOJI[h.type] || "⚠️")}
-              title={h.type}
-              optimized={false}
-            />
-          ))}
-        </GoogleMap>
- 
+            {loadedHazards.map((h, idx) => (
+              <Marker
+                key={idx}
+                position={{ lat: h.lat, lng: h.lng }}
+                icon={getEmojiMarkerIcon(HAZARD_EMOJI[h.type] || "⚠️")}
+                title={h.type}
+                optimized={false}
+              />
+            ))}
+          </GoogleMap>
+
           {(distanceText || durationText) && (
             <div style={{ marginTop: 8 }}>
               <strong>Distance:</strong> {distanceText} &nbsp;
               <strong>ETA:</strong> {durationText}
             </div>
           )}
- 
+
           <button
             onClick={recenterToOrigin}
-            style={{ marginTop: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", padding: "8px 12px", borderRadius: 8, cursor: "pointer" }}
+            style={{
+              marginTop: 8,
+              border: "1px solid var(--border)",
+              background: "var(--surface)",
+              color: "var(--text)",
+              padding: "8px 12px",
+              borderRadius: 8,
+              cursor: "pointer",
+            }}
           >
             Recenter
           </button>
-        </div>
- 
-        {/* Review panel */}
-        {selectedRouteId && (
-          <div
-            style={{
-              marginTop: 12, border: "1px solid var(--border)", borderRadius: 8,
-              padding: 12, background: "var(--surface)", color: "var(--text)",
-            }}
-          >
-            <h3 style={{ marginTop: 0 }}>Saved Review</h3>
-            {loadedReview ? (
-              <div>
-                <div style={{ marginBottom: 8 }}>
-                  <strong>Stars:</strong>{" "}
-                  <span style={{ color: "gold" }}>
-                    {Array.from({ length: loadedReview.stars || 0 }).map((_, i) => <span key={i}>★</span>)}
-                    {Array.from({ length: 5 - (loadedReview.stars || 0) }).map((_, i) => <span key={`e${i}`} style={{ color: "#ddd" }}>★</span>)}
-                  </span>{" "}
-                  <span style={{ marginLeft: 8 }}>{loadedReview.stars || 0}/5</span>
-                </div>
-                <div style={{ marginBottom: 8 }}>
-                  <strong>Terrain:</strong>{" "}
-                  {typeof loadedReview.terrain === "number" ? loadedReview.terrain : "—"} / 10
-                </div>
+
+          {selectedRouteId && (
+            <div
+              style={{
+                marginTop: 12,
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                padding: 12,
+                background: "var(--surface)",
+                color: "var(--text)",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>Saved Review</h3>
+              {loadedReview ? (
                 <div>
-                  <strong>Comment:</strong>
-                  <div style={{ whiteSpace: "pre-wrap", marginTop: 6 }}>
-                    {loadedReview.comment || <em>No comment</em>}
+                  <div style={{ marginBottom: 8 }}>
+                    <strong>Stars:</strong>{" "}
+                    <span style={{ color: "gold" }}>
+                      {Array.from({ length: loadedReview.stars || 0 }).map((_, i) => (
+                        <span key={i}>★</span>
+                      ))}
+                      {Array.from({ length: 5 - (loadedReview.stars || 0) }).map((_, i) => (
+                        <span key={`e${i}`} style={{ color: "#ddd" }}>
+                          ★
+                        </span>
+                      ))}
+                    </span>{" "}
+                    <span style={{ marginLeft: 8 }}>{loadedReview.stars || 0}/5</span>
+                  </div>
+                  <div style={{ marginBottom: 8 }}>
+                    <strong>Terrain:</strong>{" "}
+                    {typeof loadedReview.terrain === "number" ? loadedReview.terrain : "—"} / 10
+                  </div>
+                  <div>
+                    <strong>Comment:</strong>
+                    <div style={{ whiteSpace: "pre-wrap", marginTop: 6 }}>
+                      {loadedReview.comment || <em>No comment</em>}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div style={{ color: "var(--muted)" }}>No review saved for this route.</div>
-            )}
-          </div>
-        )}
- 
- 
-        {/* Hazard list for loaded route */}
-        {selectedRouteId && loadedHazards.length > 0 && (
-          <div style={{ marginTop: 12, border: "1px solid var(--border)", borderRadius: 8, padding: 12, background: "var(--surface)", color: "var(--text)" }}>
-            <h3 style={{ marginTop: 0 }}>Hazards ({loadedHazards.length})</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {loadedHazards.map((h, idx) => (
-                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                  <span>{HAZARD_EMOJI[h.type] || "⚠️"}</span>
-                  <span style={{ textTransform: "capitalize" }}>{h.type}</span>
-                  <span style={{ color: "var(--muted)", fontSize: 11 }}>
-                    ({h.lat?.toFixed(4)}, {h.lng?.toFixed(4)})
-                  </span>
-                </div>
-              ))}
+              ) : (
+                <div style={{ color: "var(--muted)" }}>No review saved for this route.</div>
+              )}
             </div>
-          </div>
-        )}
- 
-        {/* Sidebar route list */}
+          )}
+
+          {selectedRouteId && loadedHazards.length > 0 && (
+            <div
+              style={{
+                marginTop: 12,
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                padding: 12,
+                background: "var(--surface)",
+                color: "var(--text)",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>Hazards ({loadedHazards.length})</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {loadedHazards.map((h, idx) => (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                    <span>{HAZARD_EMOJI[h.type] || "⚠️"}</span>
+                    <span style={{ textTransform: "capitalize" }}>{h.type}</span>
+                    <span style={{ color: "var(--muted)", fontSize: 11 }}>
+                      ({h.lat?.toFixed(4)}, {h.lng?.toFixed(4)})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {selectedRouteId && (
+            <div
+              style={{
+                marginTop: 12,
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                padding: 12,
+                background: "var(--surface)",
+                color: "var(--text)",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>Trail Photos</h3>
+              {loadedPhotos.length === 0 ? (
+                <div style={{ color: "var(--muted)" }}>No photos saved for this route.</div>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    gap: 12,
+                  }}
+                >
+                  {loadedPhotos.map((photo, index) => (
+                    <div
+                      key={photo.url || index}
+                      style={{
+                        border: "1px solid var(--border)",
+                        borderRadius: 10,
+                        padding: 10,
+                        background: "var(--surface-2, var(--surface))",
+                      }}
+                    >
+                      <img
+                        src={photo.url}
+                        alt={photo.caption || `Trail photo ${index + 1}`}
+                        style={{
+                          width: "100%",
+                          height: 140,
+                          objectFit: "cover",
+                          borderRadius: 8,
+                          display: "block",
+                          marginBottom: 8,
+                        }}
+                      />
+                      <div style={{ fontSize: 13, color: "var(--text)" }}>
+                        {photo.caption || (
+                          <span style={{ color: "var(--muted)" }}>No caption</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <aside
           style={{
-            width: 340, border: "1px solid var(--border)", background: "var(--surface)",
-            color: "var(--text)", borderRadius: 8, padding: 12,
-            maxHeight: 600, overflowY: "auto",
+            width: "100%",
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+            color: "var(--text)",
+            borderRadius: 8,
+            padding: 12,
+            maxHeight: 600,
+            overflowY: "auto",
           }}
         >
           <h3>
@@ -627,12 +831,21 @@ async function performDeleteRoute(routeId) {
             <button
               onClick={loadRoutes}
               disabled={loadingRoutes}
-              style={{ marginLeft: 10, fontSize: 12, padding: "3px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-2)", color: "var(--text)", cursor: "pointer" }}
+              style={{
+                marginLeft: 10,
+                fontSize: 12,
+                padding: "3px 8px",
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: "var(--surface-2)",
+                color: "var(--text)",
+                cursor: "pointer",
+              }}
             >
               {loadingRoutes ? "…" : "↺ Refresh"}
             </button>
           </h3>
- 
+
           {loadingRoutes ? (
             <div style={{ color: "var(--muted)", fontSize: 14 }}>Loading routes…</div>
           ) : fetchError ? (
@@ -642,74 +855,192 @@ async function performDeleteRoute(routeId) {
               No routes match your search and filters.
             </div>
           ) : (
-            filteredRoutes.map((route) => (
-              <div
-                key={route.id}
-                style={{
-                  padding: 10, marginBottom: 10,
-                  border: "1px solid var(--border)", borderRadius: 6,
-                  background: route.id === selectedRouteId ? "var(--surface-2)" : "var(--surface)",
-                  color: "var(--text)",
-                }}
-              >
-                {editingRouteId === route.id ? (
-                  <>
-                    <div style={{ display: "grid", gap: 6 }}>
-                      <input type="text" value={editForm.title}       onChange={(e) => handleEditFieldChange("title", e.target.value)}       placeholder="Route title"            style={{ padding: 6, fontSize: 13 }} />
-                      <input type="text" value={editForm.type}        onChange={(e) => handleEditFieldChange("type", e.target.value)}        placeholder="Route type"             style={{ padding: 6, fontSize: 13 }} />
-                      <input type="text" value={editForm.origin}      onChange={(e) => handleEditFieldChange("origin", e.target.value)}      placeholder="Origin"                 style={{ padding: 6, fontSize: 13 }} />
-                      <input type="text" value={editForm.destination} onChange={(e) => handleEditFieldChange("destination", e.target.value)} placeholder="Destination"            style={{ padding: 6, fontSize: 13 }} />
-                      <input type="text" value={editForm.distance}    onChange={(e) => handleEditFieldChange("distance", e.target.value)}    placeholder="Distance (e.g. 1.2 mi)" style={{ padding: 6, fontSize: 13 }} />
-                      <input type="text" value={editForm.duration}    onChange={(e) => handleEditFieldChange("duration", e.target.value)}    placeholder="Duration (e.g. 15 mins)" style={{ padding: 6, fontSize: 13 }} />
-                    </div>
- 
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-                      <input
-                        type="checkbox" checked={editForm.isUSC}
-                        onChange={(e) => setEditForm((p) => ({ ...p, isUSC: e.target.checked }))}
-                      />
-                      at USC
-                    </label>
- 
-                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                      <button onClick={() => saveEditedRoute(route.id)}>Save</button>
-                      <button onClick={cancelEditingRoute}>Cancel</button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ fontWeight: 700 }}>
-                      {route.title} {route.type}
-                      {Array.isArray(route.tags) && route.tags.includes("USC") && (
-                        <span style={{ marginLeft: 8, fontSize: 12, padding: "2px 6px", borderRadius: 999, background: "rgba(115, 0, 10, 0.12)", color: "var(--brand)" }}>
-                          USC
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 13 }}>{route.origin} {"->"} {route.destination}</div>
-                    <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
-                      {route.distance} {route.duration && `| ${route.duration}`}
-                    </div>
- 
-                    <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                      <button onClick={() => loadRoute(route)} disabled={loadingRouteId === route.id}>
-                        {loadingRouteId === route.id ? "Loading..." : "Load"}
-                      </button>
-                      <button onClick={() => startEditingRoute(route)} disabled={loadingRouteId === route.id}>
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => requestDeleteRoute(route.id)}
-                        disabled={loadingRouteId === route.id}
-                        style={{ border: "1px solid #c62828", color: "#c62828", background: "#fff" }}
+            filteredRoutes.map((route) => {
+              const firstPhoto =
+                Array.isArray(route.photos) && route.photos.length > 0
+                  ? route.photos[0]?.url
+                  : null;
+
+              return (
+                <div
+                  key={route.id}
+                  style={{
+                    padding: 10,
+                    marginBottom: 10,
+                    border: "1px solid var(--border)",
+                    borderRadius: 6,
+                    background:
+                      route.id === selectedRouteId
+                        ? "var(--surface-2)"
+                        : "var(--surface)",
+                    color: "var(--text)",
+                  }}
+                >
+                  {editingRouteId === route.id ? (
+                    <>
+                      <div style={{ display: "grid", gap: 6 }}>
+                        <input
+                          type="text"
+                          value={editForm.title}
+                          onChange={(e) => handleEditFieldChange("title", e.target.value)}
+                          placeholder="Route title"
+                          style={{ padding: 6, fontSize: 13 }}
+                        />
+
+                        <select
+                          value={editForm.type}
+                          onChange={(e) => handleEditFieldChange("type", e.target.value)}
+                          style={{ padding: 6, fontSize: 13 }}
+                        >
+                          <option value="👣">👣 Walking</option>
+                          <option value="🚲">🚲 Biking</option>
+                          <option value="🚗">🚗 Driving</option>
+                          <option value="🛹">🛹 Skateboarding</option>
+                          <option value="🏃">🏃 Running</option>
+                          <option value="🛴">🛴 Scootering</option>
+                        </select>
+
+                        <input
+                          type="text"
+                          value={editForm.origin}
+                          onChange={(e) => handleEditFieldChange("origin", e.target.value)}
+                          placeholder="Origin"
+                          style={{ padding: 6, fontSize: 13 }}
+                        />
+                        <input
+                          type="text"
+                          value={editForm.destination}
+                          onChange={(e) => handleEditFieldChange("destination", e.target.value)}
+                          placeholder="Destination"
+                          style={{ padding: 6, fontSize: 13 }}
+                        />
+                        <input
+                          type="text"
+                          value={editForm.distance}
+                          onChange={(e) => handleEditFieldChange("distance", e.target.value)}
+                          placeholder="Distance (e.g. 1.2 mi)"
+                          style={{ padding: 6, fontSize: 13 }}
+                        />
+                        <input
+                          type="text"
+                          value={editForm.duration}
+                          onChange={(e) => handleEditFieldChange("duration", e.target.value)}
+                          placeholder="Duration (e.g. 15 mins)"
+                          style={{ padding: 6, fontSize: 13 }}
+                        />
+                      </div>
+
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          marginTop: 8,
+                        }}
                       >
-                        Delete
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))
+                        <input
+                          type="checkbox"
+                          checked={editForm.isUSC}
+                          onChange={(e) =>
+                            setEditForm((p) => ({ ...p, isUSC: e.target.checked }))
+                          }
+                        />
+                        at USC
+                      </label>
+
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <button onClick={() => saveEditedRoute(route.id)}>Save</button>
+                        <button onClick={cancelEditingRoute}>Cancel</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontWeight: 700 }}>
+                        {route.title} {route.type}
+                        {Array.isArray(route.tags) && route.tags.includes("USC") && (
+                          <span
+                            style={{
+                              marginLeft: 8,
+                              fontSize: 12,
+                              padding: "2px 6px",
+                              borderRadius: 999,
+                              background: "rgba(115, 0, 10, 0.12)",
+                              color: "var(--brand)",
+                            }}
+                          >
+                            USC
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ fontSize: 13 }}>
+                        {route.origin} {"->"} {route.destination}
+                      </div>
+
+                      <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+                        {route.distance} {route.duration && `| ${route.duration}`}
+                      </div>
+
+                      {firstPhoto && (
+                        <div style={{ marginTop: 8 }}>
+                          <img
+                            src={firstPhoto}
+                            alt={`${route.title || "Route"} preview`}
+                            style={{
+                              width: "100%",
+                              height: 120,
+                              objectFit: "cover",
+                              borderRadius: 8,
+                              border: "1px solid var(--border)",
+                              display: "block",
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {Array.isArray(route.photos) && route.photos.length > 0 && (
+                        <div
+                          style={{
+                            marginTop: 6,
+                            fontSize: 12,
+                            color: "var(--muted)",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {route.photos.length} photo{route.photos.length > 1 ? "s" : ""}
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                        <button
+                          onClick={() => loadRoute(route)}
+                          disabled={loadingRouteId === route.id}
+                        >
+                          {loadingRouteId === route.id ? "Loading..." : "Load"}
+                        </button>
+                        <button
+                          onClick={() => startEditingRoute(route)}
+                          disabled={loadingRouteId === route.id}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => requestDeleteRoute(route.id)}
+                          disabled={loadingRouteId === route.id}
+                          style={{
+                            border: "1px solid #c62828",
+                            color: "#c62828",
+                            background: "#fff",
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })
           )}
         </aside>
       </div>
