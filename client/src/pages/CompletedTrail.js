@@ -446,7 +446,21 @@ export default function CompletedTrail() {
                 mapTypeControl: false,
               }}
             >
-              {isRecordedRoute ? (
+              {directionsResult && (
+                <DirectionsRenderer
+                  directions={directionsResult}
+                  options={{
+                    suppressMarkers: false,
+                    polylineOptions: {
+                      strokeColor: "#0b63d6",
+                      strokeWeight: 5,
+                      strokeOpacity: 0.85,
+                    },
+                  }}
+                />
+              )}
+
+              {isRecordedRoute && (
                 <Polyline
                   path={route.path}
                   options={{
@@ -455,20 +469,6 @@ export default function CompletedTrail() {
                     strokeOpacity: 0.9,
                   }}
                 />
-              ) : (
-                directionsResult && (
-                  <DirectionsRenderer
-                    directions={directionsResult}
-                    options={{
-                      suppressMarkers: false,
-                      polylineOptions: {
-                        strokeColor: "#0b63d6",
-                        strokeWeight: 5,
-                        strokeOpacity: 0.85,
-                      },
-                    }}
-                  />
-                )
               )}
 
               {hazards.map((h, idx) => (

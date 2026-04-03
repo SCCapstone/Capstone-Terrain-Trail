@@ -149,30 +149,34 @@
 }
 
 /* =============================
-   LEFT CONTROL STACK
-   Hazard above Recenter
+   LEFT CONTROL STACK (FIXED)
 ============================= */
 .map-controls {
   position: absolute;
-  left: 12px;
-  bottom: 12px;
+  left: 6px;        /* pushed further left */
+  bottom: 48px;     /* above Google watermark */
   display: flex;
   flex-direction: column;
   gap: 8px;
   z-index: 1000;
   align-items: flex-start;
+
+  /* removed background + blur */
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
 }
 
-/* hazard wrapper should stay in the stack */
+
+/* hazard wrapper */
 .hazard-control {
   position: relative;
 }
 
-/* make the hazard menu open upward and align to left stack */
+/* hazard dropdown */
 .hazard-menu {
   position: absolute;
   left: 0;
-  right: auto;
   bottom: calc(100% + 8px);
   display: flex;
   flex-direction: column;
@@ -204,16 +208,12 @@
   background: rgba(0, 0, 0, 0.06);
 }
 
-/* recenter should just live in the stack, not be absolute on its own */
+/* recenter stays inline */
 .map-container .recenter-btn {
   position: relative !important;
-  left: auto !important;
-  bottom: auto !important;
-  right: auto !important;
-  top: auto !important;
 }
 
-/* make the stack feel like a small map control cluster */
+/* button sizing */
 .map-controls .map-btn {
   min-width: 104px;
   display: inline-flex;
@@ -237,35 +237,40 @@
   z-index: 9999;
 }
 
-/* =============================
-   MOBILE
-============================= */
 @media (max-width: 768px) {
   .create-trail-container {
     padding: 12px;
   }
 
   .map-layout {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 14px;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
   }
 
-  .map-section,
-  .map-sidebar {
+  .map-section {
     width: 100%;
     min-width: 0;
+    order: 2;
   }
 
   .map-sidebar {
-    max-height: none;
-    overflow-y: visible;
+    display: contents;
+  }
+
+  .map-sidebar .card:nth-child(1),
+  .map-sidebar .card:nth-child(2) {
+    order: 1;
+  }
+
+  .map-sidebar .card:nth-child(3),
+  .map-sidebar .card:nth-child(4) {
+    order: 3;
   }
 
   .map-container {
     height: 52vh;
     min-height: 360px;
+    order: 2;
   }
 
   .card {
@@ -284,25 +289,15 @@
     width: 100%;
   }
 
-  .origin-input-wrapper input,
-  .origin-input-wrapper .use-location-btn {
-    width: auto;
-  }
-
   .map-container .floating-controls {
     top: 10px;
     right: 10px;
     padding: 6px;
   }
 
-  .map-container .map-btn {
-    padding: 7px 9px !important;
-    font-size: 13px !important;
-  }
-
   .map-controls {
-    left: 10px;
-    bottom: 10px;
+    left: 4px;
+    bottom: 42px;
   }
 
   .map-controls .map-btn {
@@ -315,48 +310,26 @@
 }
 
 @media (max-width: 640px) {
-  .create-trail-container {
-    padding: 12px;
-  }
-
-  .create-trail-container h2 {
-    margin-bottom: 12px;
-  }
-
-  .map-layout {
-    gap: 12px;
-  }
-
-  .map-container {
-    height: 56vh;
-    min-height: 320px;
-  }
-
   .map-controls {
-    left: 8px;
-    bottom: 8px;
+    left: 4px;
+    bottom: 38px;
   }
+}
 
-  .map-container .floating-controls {
-    top: 8px;
-    right: 8px;
-  }
+.map-controls {
+  position: absolute;
+  left: 6px;        /* pushed further left */
+  bottom: 48px;     /* above Google watermark */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+  align-items: flex-start;
 
-  .map-controls .map-btn,
-  .map-container .map-btn {
-    border-radius: 8px !important;
-  }
-
-  .transport-toolbar {
-    overflow-x: auto;
-    white-space: nowrap;
-    flex-wrap: nowrap;
-    padding-bottom: 2px;
-  }
-
-  .transport-toolbar button {
-    flex: 0 0 auto;
-  }
+  /* removed background + blur */
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
 }
 
 /* ===== FIX MAP BUTTON TEXT IN DARK MODE ===== */
@@ -366,22 +339,5 @@ html.dark .map-container .map-btn {
 
 html.dark .map-container .map-btn:disabled {
   color: #111 !important;
-  opacity: 0.6; /* still looks disabled but readable */
-}
-
-/* move hazard + recenter above the Google watermark */
-.map-controls {
-  bottom: 80px !important;
-}
-
-@media (max-width: 768px) {
-  .map-controls {
-    bottom: 64px !important;
-  }
-}
-
-@media (max-width: 640px) {
-  .map-controls {
-    bottom: 64px !important;
-  }
+  opacity: 0.6;
 }

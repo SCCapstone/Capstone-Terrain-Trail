@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import "../components/CreateTrail.css";
 import { useSnackbar } from "../components/Snackbar.jsx";
 
-const containerStyle = { width: "100%", height: "600px" };
+const containerStyle = { width: "100%", height: "100%" };
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
 
@@ -239,6 +239,8 @@ export default function CreateTrail() {
   const [hazardMenuOpen, setHazardMenuOpen] = useState(false);
   const [hazards, setHazards] = useState([]);
   const [selectedHazardType, setSelectedHazardType] = useState(null);
+
+  const [isManualRecording, setIsManualRecording] = useState(false);
 
   const isDarkMode = document.documentElement.classList.contains("dark");
   const darkMapStyles = [
@@ -596,49 +598,80 @@ export default function CreateTrail() {
     }
 
     if (offerSave && trackedPath.length > 0) {
-      const minutes = Math.round((baseElapsedRef.current || 0) / 60000);
-      const originVal = originInputRef.current?.value?.trim() || "";
-      const lastPoint = trackedPath[trackedPath.length - 1];
-      const address = await reverseGeocodePoint(lastPoint);
-      const destinationValue =
-        address || `${lastPoint.lat.toFixed(6)}, ${lastPoint.lng.toFixed(6)}`;
+  const minutes = Math.round((baseElapsedRef.current || 0) / 60000);
+  const originVal = originInputRef.current?.value?.trim() || "";
+  const destVal = destInputRef.current?.value?.trim() || "";
 
-      const title =
-        (routeTitle || "").trim() || `${originVal || "Start"} → ${destinationValue}`;
+  const title =
+    (routeTitle || "").trim() || `${originVal || "Start"} → ${isManualRecording ? "Recorded Route" : destVal || "Destination"}`;
 
-      const newRoute = {
-        title,
-        origin: originVal,
-        destination: destinationValue,
-        distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
-        duration: `${minutes} min`,
-        type: routeType || "👣",
-        tags: isUSC ? ["USC"] : [],
-        public: false,
-        review: null,
-        path: trackedPath,
-        recorded: true,
-        hazards,
-      };
+  let newRoute;
 
-      try {
-        setSaving(true);
-        const res = await fetch(`${API_BASE}/api/routes`, {
-          method: "POST",
-          headers: authHeaders(),
-          body: JSON.stringify(newRoute),
-        });
-        if (!res.ok) throw new Error(`Server error: ${res.status}`);
-        const data = await res.json();
-        showSnackbar("Tracked route saved!", "success");
-        navigate(`/app/completed/${data.route.id}`);
-      } catch (err) {
-        console.error("save tracked route error", err);
-        showSnackbar("Failed to save tracked route. See console for details.", "error");
-      } finally {
-        setSaving(false);
-      }
-    }
+  if (isManualRecording) {
+    const lastPoint = trackedPath[trackedPath.length - 1];
+    const address = await reverseGeocodePoint(lastPoint);
+    const destinationValue =
+      address || `${lastPoint.lat.toFixed(6)}, ${lastPoint.lng.toFixed(6)}`;
+
+    newRoute = {
+      title,
+      origin: originVal,
+      destination: destinationValue,
+      distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
+      duration: `${minutes} min`,
+      type: routeType || "👣",
+      tags: isUSC ? ["USC"] : [],
+      public: false,
+      review: null,
+      path: trackedPath,
+      recorded: true,
+      hazards,
+    };
+  } else {
+    newRoute = {
+      title,
+      origin: originVal,
+      destination: destVal,
+      distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
+      duration: `${minutes} min`,
+      type: routeType || "👣",
+      tags: isUSC ? ["USC"] : [],
+      public: false,
+      review: null,
+      hazards,
+      recorded: false,
+    };
+  }
+
+  try {
+    setSaving(true);
+    const res = await fetch(`${API_BASE}/api/routes`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(newRoute),
+    });
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+    const data = await res.json();
+    showSnackbar(
+      isManualRecording ? "Tracked route saved!" : "Route saved!",
+      "success"
+    );
+    navigate(`/app/completed/${data.route.id}`);
+  } catch (err) {
+    console.error(
+      isManualRecording ? "save tracked route error" : "save route error",
+      err
+    );
+    showSnackbar(
+      isManualRecording
+        ? "Failed to save tracked route. See console for details."
+        : "Failed to save route. See console for details.",
+      "error"
+    );
+  } finally {
+    setSaving(false);
+  }
+}
   }
 
   async function setOriginToUserLocation() {
@@ -1004,6 +1037,8 @@ export default function CreateTrail() {
                   <button
                     className="map-btn"
                     onClick={() => {
+                      setIsManualRecording(false);
+
                       const originVal = originInputRef.current?.value?.trim();
                       const destVal = destInputRef.current?.value?.trim();
                       if (!directionsResult && originVal && destVal) {
@@ -1019,6 +1054,8 @@ export default function CreateTrail() {
                   <button
                     className="map-btn"
                     onClick={() => {
+                      setIsManualRecording(true);
+
                       const originVal = originInputRef.current?.value?.trim();
                       if (!originVal) {
                         setLocationMessage("Please enter a start location before recording.");
