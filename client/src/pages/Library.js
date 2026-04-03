@@ -736,21 +736,6 @@ async function performDeleteRoute(routeId) {
             </div>
           )}
 
-          <button
-            onClick={recenterToOrigin}
-            style={{
-              marginTop: 8,
-              border: "1px solid var(--border)",
-              background: "var(--surface)",
-              color: "var(--text)",
-              padding: "8px 12px",
-              borderRadius: 8,
-              cursor: "pointer",
-            }}
-          >
-            Recenter
-          </button>
-
           {selectedRouteId && (
             <div
               style={{
