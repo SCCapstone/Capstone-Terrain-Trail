@@ -13,10 +13,10 @@ import {
 } from "@react-google-maps/api";
 import "../components/Explore.css";
 
-// Map container style
+// Map container style - Reduced height to 300px to prevent excessive scrolling
 const mapContainerStyle = {
   width: "100%",
-  height: "450px",
+  height: "300px",
 };
 
 const DEFAULT_CENTER = { lat: 34.0007, lng: -81.0348 };
