@@ -125,7 +125,15 @@
 .route-actions {
   display: flex;
   gap: 8px;
-  align-items: flex-start;
+}
+
+.route-actions button {
+  width: 70px;              /* fixed width like View */
+  height: 36px;             /* optional: consistent height */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;      /* prevents wrapping */
 }
 
 .route-review {

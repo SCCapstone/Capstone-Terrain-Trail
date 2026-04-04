@@ -491,7 +491,7 @@ async function performDeleteRoute(routeId) {
     padding: 12,
     maxHeight: isMobileView ? "none" : 600,
     overflowY: isMobileView ? "visible" : "auto",
-    order: isMobileView ? -1 : 0,
+    order: 2,
   };
 
   const routeActionStyle = {
@@ -686,7 +686,7 @@ async function performDeleteRoute(routeId) {
       )}
 
       <div style={contentGridStyle}>
-        <div>
+        <div style={{ order: isMobileView ? 1 : 0 }}>
           <GoogleMap
             mapContainerStyle={mapContainerDynamicStyle}
             center={mapCenter}
@@ -863,6 +863,47 @@ async function performDeleteRoute(routeId) {
             </div>
           )}
         </div>
+
+{isMobileView && filteredRoutes.length > 0 && (
+  <div
+    style={{
+      marginTop: 12,
+      padding: "10px 12px",
+      border: "1px solid var(--border)",
+      borderRadius: 8,
+      background: "var(--surface)",
+      color: "var(--text)",
+    }}
+  >
+    <div style={{ fontWeight: 700, marginBottom: 6 }}>
+      Saved routes below
+    </div>
+
+    <div style={{ fontSize: 13, color: "var(--muted)" }}>
+      Scroll down to view your routes.
+    </div>
+
+    <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+      {filteredRoutes.slice(0, 2).map((route) => (
+        <div
+          key={route.id}
+          style={{
+            fontSize: 14,
+            padding: "6px 8px",
+            borderRadius: 6,
+            border: "1px solid var(--border)",
+            background: "var(--surface-2)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {route.title || `${route.origin} → ${route.destination}`}
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
         <aside
           style={sidebarStyle}
