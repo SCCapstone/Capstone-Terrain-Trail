@@ -69,7 +69,7 @@ const Layout = () => {
           {/* TITLE (centered) */}
           <div className="app-headerText">
             <h1>Cola Trails</h1>
-            <p>Explore and rate walking, biking, and driving trails across USC</p>
+            <p>Explore, record, review, and share trails around USC</p>
           </div>
 
           {/* spacer keeps title centered */}
