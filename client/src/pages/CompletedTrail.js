@@ -565,7 +565,9 @@ export default function CompletedTrail() {
                 max={10}
                 value={terrain}
                 onChange={(e) => setTerrain(Number(e.target.value))}
-                style={{ width: "100%" }}
+                style={{ width: "100%",
+                  "--fill": `${terrain * 10}%`,
+                 }}
               />
             </div>
 
