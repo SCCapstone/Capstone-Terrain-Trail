@@ -404,6 +404,7 @@ export default function CompletedTrail() {
   const isHydratingRef = useRef(true);
   const saveInProgressRef = useRef(false);
   const pendingAutosaveRef = useRef(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
     return () => {
@@ -453,6 +454,7 @@ export default function CompletedTrail() {
         setIsPublic(Boolean(found.public));
         setComment(found.review?.comment || "");
 
+
 // 1. DYNAMICALLY IDENTIFY THE LOGGED-IN USER
 const storedUserRaw = localStorage.getItem("user") || localStorage.getItem("currentUser");
 let currentUser = null;
@@ -462,30 +464,37 @@ try {
   currentUser = null;
 }
 
-// Get the current user's ID and Handle from their session
-const currentId = currentUser?._id || currentUser?.id || localStorage.getItem("userId");
-const currentHandle = currentUser?.username || currentUser?.handle || localStorage.getItem("username");
-
-// 2. DYNAMICALLY IDENTIFY THE ROUTE OWNER
-// 'found' is the route data returned from your API
-const routeOwnerId = found.owner?._id || found.owner?.id || (typeof found.owner === 'string' ? found.owner : null);
-const routeOwnerHandle = found.authorUsername || found.owner?.username || found.owner?.handle || found.postedBy;
-
-// 3. THE UNIVERSAL COMPARISON
-const clean = (str) => String(str || "").toLowerCase().replace(/^@/, "").trim();
-
-// Check if IDs match OR if Usernames match
-const isIdMatch = currentId && routeOwnerId && String(currentId) === String(routeOwnerId);
-const isHandleMatch = currentHandle && routeOwnerHandle && clean(currentHandle) === clean(routeOwnerHandle);
-
-// If either matches, they are the owner
-const ownerMatch = !!(isIdMatch || isHandleMatch);
-
-console.log("Ownership Verified:", { 
-  isOwner: ownerMatch, 
-  user: currentHandle || currentId, 
-  owner: routeOwnerHandle || routeOwnerId 
+const accountRes = await fetch(`${API_BASE}/api/account`, {
+  headers: authHeaders(),
 });
+
+let me = null;
+if (accountRes.ok) {
+  const accountData = await accountRes.json();
+  me = accountData.user;
+  setCurrentUser(me);
+}
+
+const routeOwnerId =
+  found.owner?._id ||
+  found.owner?.id ||
+  (typeof found.owner === "string" ? found.owner : null);
+
+const routeOwnerHandle =
+  found.authorUsername ||
+  found.owner?.username ||
+  found.owner?.handle ||
+  found.postedBy;
+
+const clean = (str) =>
+  String(str || "").toLowerCase().replace(/^@/, "").trim();
+
+const ownerMatch =
+  !!me &&
+  (
+    String(me._id || me.id) === String(routeOwnerId) ||
+    clean(me.username || me.handle) === clean(routeOwnerHandle)
+  );
 
 setIsOwner(ownerMatch);
 
