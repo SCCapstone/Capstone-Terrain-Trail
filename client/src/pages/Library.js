@@ -110,7 +110,6 @@ function PhotoCarousel({ photos, title, height = 200 }) {
       marginTop: 10,
       position: "relative",
       width: "100%",
-      height,
       borderRadius: 10,
       overflow: "hidden",
       border: "1px solid var(--border)",
@@ -121,10 +120,9 @@ function PhotoCarousel({ photos, title, height = 200 }) {
         alt={photo?.caption || `${title || "Trail"} photo ${index + 1}`}
         style={{
           width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          objectPosition: "center",
+          height: "auto",
           display: "block",
+          maxHeight: 500,        // prevents extremely tall portrait images from being huge
         }}
       />
 
@@ -148,10 +146,8 @@ function PhotoCarousel({ photos, title, height = 200 }) {
         </div>
       )}
 
-      {/* Dot indicators + arrows — only if multiple photos */}
       {photos.length > 1 && (
         <>
-          {/* Left arrow */}
           <button
             onClick={prev}
             style={{
@@ -178,7 +174,6 @@ function PhotoCarousel({ photos, title, height = 200 }) {
             ‹
           </button>
 
-          {/* Right arrow */}
           <button
             onClick={next}
             style={{
@@ -205,7 +200,6 @@ function PhotoCarousel({ photos, title, height = 200 }) {
             ›
           </button>
 
-          {/* Dot indicators */}
           <div style={{
             position: "absolute",
             bottom: 6,
