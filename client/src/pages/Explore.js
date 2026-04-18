@@ -11,6 +11,7 @@ import {
   GoogleMap,
   DirectionsRenderer,
 } from "@react-google-maps/api";
+import { useSnackbar } from "../components/Snackbar.jsx";
 import "../components/Explore.css";
 
 // Map container style - Reduced height to 300px to prevent excessive scrolling
@@ -215,11 +216,14 @@ export default function Explore() {
   const navigate = useNavigate(); // Hook for navigation
   const mapRefInternal = useRef(null);
   const directionsCache = useRef({});
+  const { showSnackbar } = useSnackbar();
 
   const [publicRoutes, setPublicRoutes] = useState([]);
   const [loadingPublic, setLoadingPublic] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [voteLoadingIds, setVoteLoadingIds] = useState({});
+  const [saveLoadingIds, setSaveLoadingIds] = useState({});
+  const [savedCopySourceIds, setSavedCopySourceIds] = useState({});
 
   // Filters
   const [activeFilter, setActiveFilter] = useState("All");
@@ -377,6 +381,68 @@ export default function Explore() {
       }
     },
     [publicRoutes]
+  );
+
+  const handleSaveCopy = useCallback(
+    async (route) => {
+      if (!route?.origin || !route?.destination) {
+        showSnackbar(
+          "This route is missing required details and cannot be saved.",
+          "error"
+        );
+        return;
+      }
+
+      setSaveLoadingIds((prev) => ({ ...prev, [route.id]: true }));
+
+      const copiedRoute = {
+        title: route.title || "Untitled Route",
+        origin: route.origin || "",
+        destination: route.destination || "",
+        distance: route.distance || "",
+        duration: route.duration || "",
+        type: route.type || "👣",
+        tags: Array.isArray(route.tags) ? route.tags : [],
+        public: false,
+        review: route.review || null,
+        path: Array.isArray(route.path) ? route.path : [],
+        encodedPolyline: route.encodedPolyline || null,
+        bounds: route.bounds || undefined,
+        hazards: Array.isArray(route.hazards) ? route.hazards : [],
+        photos: Array.isArray(route.photos) ? route.photos : [],
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/api/routes`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify(copiedRoute),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.message || `Server error: ${res.status}`);
+        }
+
+        setSavedCopySourceIds((prev) => ({ ...prev, [route.id]: true }));
+        showSnackbar("Route copied to your library.", "success", [
+          {
+            label: "Open Library",
+            onClick: () => navigate("/app/library"),
+            closeOnClick: true,
+          },
+        ]);
+      } catch (err) {
+        console.error("save public route copy error", err);
+        showSnackbar(
+          err.message || "Could not save this route to your library.",
+          "error"
+        );
+      } finally {
+        setSaveLoadingIds((prev) => ({ ...prev, [route.id]: false }));
+      }
+    },
+    [navigate, showSnackbar]
   );
 
   const processedRoutes = useMemo(() => {
@@ -545,12 +611,13 @@ export default function Explore() {
               const userVote = r.votes?.userVote || 0;
               const voteScore = r.votes?.score || 0;
               const voteBusy = !!voteLoadingIds[r.id];
+              const saveBusy = !!saveLoadingIds[r.id];
+              const alreadySaved = !!savedCopySourceIds[r.id];
               const authorDisplay = r.authorUsername
                 ? `@${r.authorUsername}`
                 : r.authorName || "Unknown user";
 
               const routePhotos = Array.isArray(r.photos) ? r.photos : [];
-              const firstPhoto = routePhotos.length > 0 ? routePhotos[0]?.url : null;
 
               return (
                 <div
@@ -698,6 +765,15 @@ export default function Explore() {
                           title="Share Route"
                         >
                           Share ↗
+                        </button>
+
+                        <button
+                          onClick={() => handleSaveCopy(r)}
+                          disabled={saveBusy}
+                          className={alreadySaved ? "saved-copy-btn" : ""}
+                          title="Save a personal copy to your library"
+                        >
+                          {saveBusy ? "Saving..." : alreadySaved ? "Saved" : "Save"}
                         </button>
                       </div>
                     </div>

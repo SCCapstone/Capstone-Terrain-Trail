@@ -128,12 +128,19 @@
 }
 
 .route-actions button {
-  width: 70px;              /* fixed width like View */
+  min-width: 70px;
   height: 36px;             /* optional: consistent height */
   display: inline-flex;
   align-items: center;
   justify-content: center;
   white-space: nowrap;      /* prevents wrapping */
+}
+
+.route-actions .saved-copy-btn {
+  background: rgba(46, 125, 50, 0.14);
+  border-color: rgba(46, 125, 50, 0.35);
+  color: #256b2a;
+  font-weight: 700;
 }
 
 .route-review {

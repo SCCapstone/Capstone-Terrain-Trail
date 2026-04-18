@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 import Library from "./Library";
+import { SnackbarProvider } from "../components/Snackbar";
 
 const LOCAL_STORAGE_KEY = "savedRoutes_v1";
 
@@ -52,6 +53,14 @@ function seedRoutes(routes) {
   window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(routes));
 }
 
+function renderLibrary() {
+  return render(
+    <SnackbarProvider>
+      <Library />
+    </SnackbarProvider>
+  );
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   mockLoaderState = { isLoaded: true, loadError: null };
@@ -78,6 +87,17 @@ beforeEach(() => {
   };
   global.window.google = global.google;
 
+  window.matchMedia = jest.fn().mockImplementation(() => ({
+    matches: false,
+    media: "(max-width: 768px)",
+    onchange: null,
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  }));
+
   window.alert = jest.fn();
   window.confirm = jest.fn(() => true);
 });
@@ -90,18 +110,18 @@ afterEach(() => {
 
 test("shows loading UI when maps script is not loaded", () => {
   mockLoaderState = { isLoaded: false, loadError: null };
-  render(<Library />);
+  renderLibrary();
   expect(screen.getByText("Loading map...")).toBeInTheDocument();
 });
 
 test("shows load error UI when maps script fails", () => {
   mockLoaderState = { isLoaded: true, loadError: new Error("boom") };
-  render(<Library />);
+  renderLibrary();
   expect(screen.getByText("Error loading Google Maps")).toBeInTheDocument();
 });
 
 test("shows empty state when no routes match", async () => {
-  render(<Library />);
+  renderLibrary();
   expect(screen.getByText(/Saved Routes \(0\)/i)).toBeInTheDocument();
   expect(screen.getByText(/No routes match your search and filters\./i)).toBeInTheDocument();
 
@@ -142,7 +162,7 @@ test("search and filters work together, and clear filters resets", async () => {
   ];
 
   seedRoutes(routes);
-  render(<Library />);
+  renderLibrary();
   const user = userEvent.setup();
 
   await user.type(screen.getByPlaceholderText("Search saved routes..."), "walk");
@@ -183,7 +203,7 @@ test("load renders directions, sets stats, shows saved review, and recenter uses
     buildDirectionsResult({ distance: "2 mi", duration: "12 mins", lat: 34.1, lng: -81.2 })
   );
 
-  render(<Library />);
+  renderLibrary();
   const user = userEvent.setup();
 
   await user.click(screen.getByRole("button", { name: "Load" }));
@@ -229,7 +249,7 @@ test("load failure alerts and clears any stale review", async () => {
 
   mockRoute.mockRejectedValueOnce(new Error("network"));
 
-  render(<Library />);
+  renderLibrary();
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Load" }));
 
@@ -255,7 +275,7 @@ test("delete route respects confirm and removes selected route state", async () 
     },
   ]);
 
-  render(<Library />);
+  renderLibrary();
   const user = userEvent.setup();
 
   await user.click(screen.getByRole("button", { name: "Load" }));
@@ -288,7 +308,7 @@ test("edit can be canceled and save validates required origin/destination", asyn
     },
   ]);
 
-  render(<Library />);
+  renderLibrary();
   const user = userEvent.setup();
 
   await user.click(screen.getByRole("button", { name: "Edit" }));
@@ -319,7 +339,7 @@ test("save edit updates route card and persists to localStorage", async () => {
     },
   ]);
 
-  render(<Library />);
+  renderLibrary();
   const user = userEvent.setup();
 
   await user.click(screen.getByRole("button", { name: "Edit" }));
@@ -365,7 +385,7 @@ test("saving an edited selected route reloads it", async () => {
     },
   ]);
 
-  render(<Library />);
+  renderLibrary();
   const user = userEvent.setup();
 
   await user.click(screen.getByRole("button", { name: "Load" }));
