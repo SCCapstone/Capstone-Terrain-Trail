@@ -19,14 +19,11 @@ function App() {
       <SnackbarProvider>
         <Router>
           <Routes>
-            {/* Public pages */}
             <Route path="/" element={<SplashScreen />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/login" element={<Login />} />
 
-            {/* Main app shell under /app */}
             <Route path="/app" element={<Layout />}>
-              {/* Map-loaded routes */}
               <Route element={<MapProvider />}>
                 <Route index element={<Explore />} />
                 <Route path="create" element={<CreateTrail />} />
@@ -35,11 +32,9 @@ function App() {
                 <Route path="completed/:id" element={<CompletedTrail />} />
               </Route>
 
-              {/* Non-map route */}
               <Route path="settings" element={<Settings />} />
             </Route>
 
-            {/* 404 */}
             <Route path="*" element={<div>Page not found</div>} />
           </Routes>
         </Router>

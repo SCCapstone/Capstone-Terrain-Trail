@@ -3,6 +3,34 @@ import { Link } from "react-router-dom";
 import "./SplashScreen.css";
 import horseshoeImage from "./horseshoe_now.jpg";
 
+const teamMembers = [
+  {
+    name: "Madeleine McBride",
+    linkedin: "https://www.linkedin.com/in/madeleine-mcbride/",
+    personalSite: "https://mcmad1325.github.io/",
+  },
+  {
+    name: "Gavin Orme",
+    linkedin: "https://www.linkedin.com/in/gavin-orme-2863b8286/",
+    personalSite: "",
+  },
+  {
+    name: "Kyle Hix",
+    linkedin: "https://www.linkedin.com/in/kyle-hix19/",
+    personalSite: "",
+  },
+  {
+    name: "Meet Patel",
+    linkedin: "",
+    personalSite: "",
+  },
+  {
+    name: "Donovan Williams",
+    linkedin: "",
+    personalSite: "",
+  },
+];
+
 function SplashScreen() {
   return (
     <div className="splash-page">
@@ -20,19 +48,17 @@ function SplashScreen() {
       </header>
 
       <main className="splash-main">
-        <div className="splash-card">
+        <section className="splash-card">
           <div className="splash-left">
             <p className="splash-tag">Built for getting around USC</p>
 
-            <h2 className="splash-title">
-              Find the best way around campus.
-            </h2>
+            <h2 className="splash-title">Find the best way around campus.</h2>
 
             <p className="splash-description">
               Cola Trails helps students discover, create, save, and share
-              routes around USC. Explore public trails, compare terrain and
-              accessibility, and read reviews to choose the path that fits your
-              needs best.
+              routes around USC. Users can explore public trails, compare route
+              details like terrain and accessibility, save useful paths, and
+              leave reviews to help others find the route that fits them best.
             </p>
 
             <div className="splash-feature-list">
@@ -62,7 +88,142 @@ function SplashScreen() {
               className="splash-image"
             />
           </div>
-        </div>
+        </section>
+
+        <section className="splash-info-card">
+          <div className="splash-section-heading">
+            <p className="splash-section-label">Final Demo</p>
+            <h3>Video walkthrough</h3>
+            <p>
+              This is a placeholder for the final demo video. Replace the file
+              later with your completed demo video and the same section will
+              still work.
+            </p>
+          </div>
+
+          <div className="splash-video-wrapper">
+            <video
+              className="splash-video"
+              controls
+              preload="metadata"
+              poster="/img/colaCan.png"
+            >
+              <source src="/videos/final-demo-placeholder.mp4" type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        </section>
+
+        <section className="splash-info-card splash-how-card">
+          <div className="splash-section-heading">
+            <p className="splash-section-label">How and why to use the app</p>
+            <h3>Designed to make navigating USC easier</h3>
+            <p>
+              Cola Trails is for students who want a better way to get around
+              campus. Instead of guessing which path is easiest, fastest, or
+              most accessible, users can browse shared routes, compare trail
+              details, and learn from other students&apos; experiences before
+              choosing where to go.
+            </p>
+          </div>
+
+          <div className="splash-steps-grid">
+            <div className="splash-step-card">
+              <h4>1. Explore routes</h4>
+              <p>
+                Search public trails around USC and compare them by location,
+                route type, terrain, and accessibility.
+              </p>
+            </div>
+
+            <div className="splash-step-card">
+              <h4>2. Choose what fits you</h4>
+              <p>
+                Use trail details and reviews to find the route that best matches
+                your needs and destination.
+              </p>
+            </div>
+
+            <div className="splash-step-card">
+              <h4>3. Create and save</h4>
+              <p>
+                Build your own trails, save favorite routes, and keep useful
+                paths organized in one place.
+              </p>
+            </div>
+
+            <div className="splash-step-card">
+              <h4>4. Help other students</h4>
+              <p>
+                Leave reviews and share trails so other users can make better
+                decisions about how they move across campus.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="splash-info-card">
+          <div className="splash-section-heading">
+            <p className="splash-section-label">About the team</p>
+            <h3>Meet the developers behind Cola Trails</h3>
+            <p>
+              Cola Trails was built as a capstone project focused on improving
+              campus navigation through shared route information, student
+              reviews, and accessibility-aware trail exploration.
+            </p>
+          </div>
+
+          <div className="splash-team-grid">
+            {teamMembers.map((member) => (
+              <div className="splash-team-card" key={member.name}>
+                <h4>{member.name}</h4>
+
+                <div className="splash-team-links">
+                  {member.linkedin ? (
+                    <a
+                      href={member.linkedin}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="splash-team-link"
+                    >
+                      LinkedIn
+                    </a>
+                  ) : (
+                    <span className="splash-team-link splash-team-link-disabled">
+                      LinkedIn coming soon
+                    </span>
+                  )}
+
+                  {member.personalSite ? (
+                    <a
+                      href={member.personalSite}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="splash-team-link"
+                    >
+                      Personal Site
+                    </a>
+                  ) : (
+                    <span className="splash-team-link splash-team-link-disabled">
+                      Personal site coming soon
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="splash-repo-row">
+            <a
+              href="https://github.com/SCCapstone/Capstone-Terrain-Trail"
+              target="_blank"
+              rel="noreferrer"
+              className="splash-button splash-button-tertiary"
+            >
+              View GitHub Repo
+            </a>
+          </div>
+        </section>
       </main>
     </div>
   );
