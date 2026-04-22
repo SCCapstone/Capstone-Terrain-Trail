@@ -136,62 +136,54 @@ function SplashScreen() {
 
           <div className="splash-steps-grid">
             <div className="splash-step-card">
-              <div className="splash-step-image-wrapper">
-                <img
-                  src={explorePageImage}
-                  alt="Explore page screenshot"
-                  className="splash-step-image"
-                />
-              </div>
+              <img
+                src={explorePageImage}
+                alt="Explore page screenshot"
+                className="splash-step-image"
+              />
               <h4>1. Explore routes</h4>
               <p>
-                Search public trails around USC and compare them by location,
-                route type, terrain, and accessibility.
+                Browse public trails around USC and compare them by route,
+                terrain, accessibility, and travel mode.
               </p>
             </div>
 
             <div className="splash-step-card">
-              <div className="splash-step-image-wrapper">
-                <img
-                  src={createPageImage}
-                  alt="Create page screenshot"
-                  className="splash-step-image"
-                />
-              </div>
-              <h4>2. Choose what fits you</h4>
+              <img
+                src={createPageImage}
+                alt="Create trail screenshot"
+                className="splash-step-image"
+              />
+              <h4>2. Create your own trail</h4>
               <p>
-                Use trail details and reviews to find the route that best matches
-                your needs and destination.
+                Build a route on the map, compare route options, and customize
+                your path based on your needs.
               </p>
             </div>
 
             <div className="splash-step-card">
-              <div className="splash-step-image-wrapper">
-                <img
-                  src={libraryPageImage}
-                  alt="Library page screenshot"
-                  className="splash-step-image"
-                />
-              </div>
-              <h4>3. Create and save</h4>
+              <img
+                src={libraryPageImage}
+                alt="Library page screenshot"
+                className="splash-step-image"
+              />
+              <h4>3. Save to your library</h4>
               <p>
-                Build your own trails, save favorite routes, and keep useful
-                paths organized in one place.
+                Keep useful routes organized in one place so you can easily come
+                back to your saved trails later.
               </p>
             </div>
 
             <div className="splash-step-card">
-              <div className="splash-step-image-wrapper">
-                <img
-                  src={votePageImage}
-                  alt="Voting and review screenshot"
-                  className="splash-step-image"
-                />
-              </div>
-              <h4>4. Help other students</h4>
+              <img
+                src={votePageImage}
+                alt="Voting and review screenshot"
+                className="splash-step-image"
+              />
+              <h4>4. Vote and help other students</h4>
               <p>
-                Leave reviews and share trails so other users can make better
-                decisions about how they move across campus.
+                Share feedback, leave reviews, and support helpful public trails
+                so others can make better route decisions.
               </p>
             </div>
           </div>
