@@ -203,6 +203,11 @@ export default function CreateTrail() {
   const destAutocompleteRef = useRef(null);
   const watchIdRef = useRef(null);
   const routeRequestIdRef = useRef(0);
+  const trackingSessionRef = useRef({
+    useLiveAddresses: false,
+    startAddress: "",
+    startPoint: null,
+  });
 
   const [map, setMap] = useState(null);
   const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
@@ -312,6 +317,36 @@ export default function CreateTrail() {
     } else {
       setLocationMessage("");
     }
+
+    return exactPoint;
+  }
+
+  function formatPointFallback(point, fallbackLabel) {
+    if (!point) return fallbackLabel;
+    return `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`;
+  }
+
+  async function reverseGeocodePoint(point) {
+    if (!window.google?.maps || !point) return null;
+    return new Promise((resolve) => {
+      new google.maps.Geocoder().geocode({ location: point }, (results, status) => {
+        resolve(status === "OK" && results?.[0] ? results[0].formatted_address : null);
+      });
+    });
+  }
+
+  async function prepareLiveAddressTracking() {
+    const { exactPoint } = await getUserLocation();
+    const address = await reverseGeocodePoint(exactPoint);
+
+    trackingSessionRef.current = {
+      useLiveAddresses: true,
+      startAddress: address || formatPointFallback(exactPoint, "Start"),
+      startPoint: exactPoint,
+    };
+
+    setOriginPosition(exactPoint);
+    setMapCenter(exactPoint);
 
     return exactPoint;
   }
@@ -588,90 +623,104 @@ export default function CreateTrail() {
     stopElapsedTimer();
     setElapsedMsDisplay(baseElapsedRef.current);
 
-    async function reverseGeocodePoint(point) {
-      if (!window.google?.maps || !point) return null;
-      return new Promise((resolve) => {
-        new google.maps.Geocoder().geocode({ location: point }, (results, status) => {
-          resolve(status === "OK" && results?.[0] ? results[0].formatted_address : null);
+    if (offerSave && trackedPath.length > 0) {
+      const minutes = Math.round((baseElapsedRef.current || 0) / 60000);
+      const originVal = originInputRef.current?.value?.trim() || "";
+      const destVal = destInputRef.current?.value?.trim() || "";
+      const trackingSession = trackingSessionRef.current;
+      const lastPoint =
+        trackedPath[trackedPath.length - 1] ||
+        trackingSession.startPoint ||
+        originPosition;
+
+      const liveDestinationAddress = trackingSession.useLiveAddresses
+        ? await reverseGeocodePoint(lastPoint)
+        : null;
+
+      const savedOrigin = trackingSession.useLiveAddresses
+        ? trackingSession.startAddress ||
+          formatPointFallback(trackingSession.startPoint, "Start")
+        : originVal;
+
+      const savedDestination = trackingSession.useLiveAddresses
+        ? liveDestinationAddress ||
+          formatPointFallback(lastPoint, "Destination")
+        : isManualRecording
+          ? (await reverseGeocodePoint(lastPoint)) ||
+            formatPointFallback(lastPoint, "Destination")
+          : destVal;
+
+      const shouldSaveRecordedRoute =
+        isManualRecording || trackingSession.useLiveAddresses;
+
+      const title =
+        (routeTitle || "").trim() ||
+        `${savedOrigin || "Start"} -> ${savedDestination || "Destination"}`;
+
+      const newRoute = shouldSaveRecordedRoute
+        ? {
+            title,
+            origin: savedOrigin,
+            destination: savedDestination,
+            distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
+            duration: `${minutes} min`,
+            type: routeType,
+            tags: isUSC ? ["USC"] : [],
+            public: false,
+            review: null,
+            path: trackedPath,
+            recorded: true,
+            hazards,
+          }
+        : {
+            title,
+            origin: savedOrigin,
+            destination: savedDestination,
+            distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
+            duration: `${minutes} min`,
+            type: routeType,
+            tags: isUSC ? ["USC"] : [],
+            public: false,
+            review: null,
+            hazards,
+            recorded: false,
+          };
+
+      try {
+        setSaving(true);
+        const res = await fetch(`${API_BASE}/api/routes`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify(newRoute),
         });
-      });
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        const data = await res.json();
+        showSnackbar(
+          shouldSaveRecordedRoute ? "Tracked route saved!" : "Route saved!",
+          "success"
+        );
+        navigate(`/app/completed/${data.route.id}`);
+      } catch (err) {
+        console.error(
+          shouldSaveRecordedRoute ? "save tracked route error" : "save route error",
+          err
+        );
+        showSnackbar(
+          shouldSaveRecordedRoute
+            ? "Failed to save tracked route. See console for details."
+            : "Failed to save route. See console for details.",
+          "error"
+        );
+      } finally {
+        setSaving(false);
+      }
     }
 
-    if (offerSave && trackedPath.length > 0) {
-  const minutes = Math.round((baseElapsedRef.current || 0) / 60000);
-  const originVal = originInputRef.current?.value?.trim() || "";
-  const destVal = destInputRef.current?.value?.trim() || "";
-
-  const title =
-    (routeTitle || "").trim() || `${originVal || "Start"} → ${isManualRecording ? "Recorded Route" : destVal || "Destination"}`;
-
-  let newRoute;
-
-  if (isManualRecording) {
-    const lastPoint = trackedPath[trackedPath.length - 1];
-    const address = await reverseGeocodePoint(lastPoint);
-    const destinationValue =
-      address || `${lastPoint.lat.toFixed(6)}, ${lastPoint.lng.toFixed(6)}`;
-
-    newRoute = {
-      title,
-      origin: originVal,
-      destination: destinationValue,
-      distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
-      duration: `${minutes} min`,
-      type: routeType || "👣",
-      tags: isUSC ? ["USC"] : [],
-      public: false,
-      review: null,
-      path: trackedPath,
-      recorded: true,
-      hazards,
+    trackingSessionRef.current = {
+      useLiveAddresses: false,
+      startAddress: "",
+      startPoint: null,
     };
-  } else {
-    newRoute = {
-      title,
-      origin: originVal,
-      destination: destVal,
-      distance: `${(trackedDistanceMeters / 1609.344).toFixed(2)} mi`,
-      duration: `${minutes} min`,
-      type: routeType || "👣",
-      tags: isUSC ? ["USC"] : [],
-      public: false,
-      review: null,
-      hazards,
-      recorded: false,
-    };
-  }
-
-  try {
-    setSaving(true);
-    const res = await fetch(`${API_BASE}/api/routes`, {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(newRoute),
-    });
-    if (!res.ok) throw new Error(`Server error: ${res.status}`);
-    const data = await res.json();
-    showSnackbar(
-      isManualRecording ? "Tracked route saved!" : "Route saved!",
-      "success"
-    );
-    navigate(`/app/completed/${data.route.id}`);
-  } catch (err) {
-    console.error(
-      isManualRecording ? "save tracked route error" : "save route error",
-      err
-    );
-    showSnackbar(
-      isManualRecording
-        ? "Failed to save tracked route. See console for details."
-        : "Failed to save route. See console for details.",
-      "error"
-    );
-  } finally {
-    setSaving(false);
-  }
-}
   }
 
   async function setOriginToUserLocation() {
@@ -829,6 +878,11 @@ export default function CreateTrail() {
     setTrackedDistanceMeters(0);
     setRouteTitle("");
     setHazards([]);
+    trackingSessionRef.current = {
+      useLiveAddresses: false,
+      startAddress: "",
+      startPoint: null,
+    };
 
     map?.panTo(DEFAULT_CENTER);
     map?.setZoom(14);
@@ -1036,15 +1090,36 @@ export default function CreateTrail() {
                 <>
                   <button
                     className="map-btn"
-                    onClick={() => {
+                    onClick={async () => {
                       setIsManualRecording(false);
 
                       const originVal = originInputRef.current?.value?.trim();
                       const destVal = destInputRef.current?.value?.trim();
-                      if (!directionsResult && originVal && destVal) {
-                        calculateRoute().then(beginTracking).catch(beginTracking);
-                      } else {
+                      const shouldCaptureLiveAddresses = !originVal || !destVal;
+
+                      trackingSessionRef.current = {
+                        useLiveAddresses: false,
+                        startAddress: "",
+                        startPoint: null,
+                      };
+
+                      try {
+                        if (shouldCaptureLiveAddresses) {
+                          await prepareLiveAddressTracking();
+                          beginTracking();
+                          return;
+                        }
+
+                        if (!directionsResult && originVal && destVal) {
+                          await calculateRoute();
+                        }
                         beginTracking();
+                      } catch (err) {
+                        console.error("start tracking setup error:", err);
+                        showSnackbar(
+                          "Could not get your live location to start this route.",
+                          "error"
+                        );
                       }
                     }}
                   >
@@ -1055,6 +1130,11 @@ export default function CreateTrail() {
                     className="map-btn"
                     onClick={() => {
                       setIsManualRecording(true);
+                      trackingSessionRef.current = {
+                        useLiveAddresses: false,
+                        startAddress: "",
+                        startPoint: null,
+                      };
 
                       const originVal = originInputRef.current?.value?.trim();
                       if (!originVal) {
@@ -1251,3 +1331,4 @@ export default function CreateTrail() {
     </div>
   );
 }
+
