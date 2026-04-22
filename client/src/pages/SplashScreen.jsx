@@ -25,7 +25,7 @@ const teamMembers = [
   },
   {
     name: "Meet Patel",
-    linkedin: "",
+    linkedin: "https://www.linkedin.com/in/meetkumar-patel-085047311/",
     personalSite: "",
   },
   {
