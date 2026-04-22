@@ -13,13 +13,13 @@
 .splash-logo {
   position: absolute;
   top: 50%;
-  left: 20px;
+  left: 22px;
   transform: translateY(-50%);
-  width: 86px;
-  height: 86px;
+  width: 78px;
+  height: 78px;
   object-fit: contain;
-  background: white;
-  border: 3px solid #111;
+  background: #ffffff;
+  border: 3px solid #111111;
   border-radius: 50%;
   padding: 10px;
   box-sizing: border-box;
@@ -96,11 +96,28 @@
 }
 
 .splash-description {
-  margin: 0 0 28px;
+  margin: 0 0 22px;
   font-size: 1.18rem;
   line-height: 1.8;
   color: #4b5563;
   max-width: 620px;
+}
+
+.splash-feature-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.splash-feature-pill {
+  background: #f9fafc;
+  color: #73000a;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
 .splash-button-group {
@@ -110,7 +127,7 @@
 }
 
 .splash-button {
-  min-width: 160px;
+  min-width: 180px;
   padding: 14px 26px;
   border-radius: 999px;
   text-decoration: none;
@@ -188,8 +205,8 @@
     transform: none;
     display: block;
     margin: 0 auto 14px;
-    width: 76px;
-    height: 76px;
+    width: 72px;
+    height: 72px;
   }
 
   .splash-header h1 {
@@ -216,6 +233,10 @@
   .splash-description {
     font-size: 1rem;
     line-height: 1.7;
+  }
+
+  .splash-feature-list {
+    margin-bottom: 22px;
   }
 
   .splash-button-group {
