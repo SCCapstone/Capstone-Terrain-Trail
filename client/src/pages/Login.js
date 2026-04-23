@@ -148,7 +148,7 @@ export default function Login() {
               <button
                 className="auth-btn auth-btn--link"
                 type="button"
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/signup")}
               >
                 Sign Up
               </button>
