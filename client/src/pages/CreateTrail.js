@@ -329,6 +329,12 @@ export default function CreateTrail() {
     }
   }, [map, routeType]);
 
+//   useEffect(() => {
+//   if (trackedPath.length > 1) {
+//     fitMapToPath(trackedPath);
+//   }
+// }, [trackedPath]);
+
   useEffect(() => {
     return () => {
       if (watchIdRef.current != null) {
@@ -480,6 +486,16 @@ export default function CreateTrail() {
     );
   }
 
+
+  function fitMapToPath(path) {
+  if (!map || !window.google || !path?.length) return;
+
+  const bounds = new window.google.maps.LatLngBounds();
+  path.forEach((p) => bounds.extend(p));
+
+  map.fitBounds(bounds);
+}
+
   function startElapsedTimer() {
     if (elapsedIntervalRef.current) return;
     elapsedIntervalRef.current = setInterval(() => {
@@ -498,38 +514,54 @@ export default function CreateTrail() {
   }
 
   function beginTracking() {
-    if (!navigator.geolocation) {
-      showSnackbar("Geolocation not supported by this browser.", "error");
-      return;
-    }
-
-    setTrackedPath([]);
-    setTrackedDistanceMeters(0);
-    baseElapsedRef.current = 0;
-    setElapsedMsDisplay(0);
-
-    startTsRef.current = Date.now();
-    setIsPaused(false);
-    setIsTracking(true);
-    startElapsedTimer();
-
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        if (isPaused) return;
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setTrackedPath((prev) => {
-          const next = [...prev, coords];
-          if (prev.length > 0) {
-            const d = haversineDistanceMeters(prev[prev.length - 1], coords);
-            setTrackedDistanceMeters((prevD) => prevD + d);
-          }
-          return next;
-        });
-      },
-      (err) => console.warn("geolocation watch error", err),
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
-    );
+  if (!navigator.geolocation) {
+    showSnackbar("Geolocation not supported by this browser.", "error");
+    return;
   }
+
+  setTrackedPath([]);
+  setTrackedDistanceMeters(0);
+  baseElapsedRef.current = 0;
+  setElapsedMsDisplay(0);
+
+  startTsRef.current = Date.now();
+  setIsPaused(false);
+  setIsTracking(true);
+  startElapsedTimer();
+
+  watchIdRef.current = navigator.geolocation.watchPosition(
+    (pos) => {
+      if (isPaused) return;
+
+      const coords = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+      };
+
+      // ✅ Center map on user WITHOUT changing zoom
+      if (map) {
+        map.panTo(coords);
+      }
+
+      setTrackedPath((prev) => {
+        const next = [...prev, coords];
+
+        if (prev.length > 0) {
+          const d = haversineDistanceMeters(prev[prev.length - 1], coords);
+          setTrackedDistanceMeters((prevD) => prevD + d);
+        }
+
+        return next;
+      });
+    },
+    (err) => console.warn("geolocation watch error", err),
+    {
+      enableHighAccuracy: true,
+      maximumAge: 1000,
+      timeout: 5000,
+    }
+  );
+}
 
   function pauseTracking() {
     if (!isTracking || isPaused) return;
@@ -1038,18 +1070,32 @@ export default function CreateTrail() {
                 <>
                   <button
                     className="map-btn"
-                    onClick={() => {
-                      setIsTracking(true);
-                      setIsManualRecording(false);
+                    onClick={async () => {
+  setIsTracking(true);
+  setIsManualRecording(false);
 
-                      const originVal = originInputRef.current?.value?.trim();
-                      const destVal = destInputRef.current?.value?.trim();
-                      if (!directionsResult && originVal && destVal) {
-                        calculateRoute().then(beginTracking).catch(beginTracking);
-                      } else {
-                        beginTracking();
-                      }
-                    }}
+  try {
+    const { exactPoint } = await getUserLocation();
+
+    if (map) {
+      map.panTo(exactPoint);
+      map.setZoom(16);
+    }
+
+    setOriginPosition(exactPoint);
+  } catch (e) {
+    console.warn("Could not get user location:", e);
+  }
+
+  const originVal = originInputRef.current?.value?.trim();
+  const destVal = destInputRef.current?.value?.trim();
+
+  if (!directionsResult && originVal && destVal) {
+    calculateRoute().then(beginTracking).catch(beginTracking);
+  } else {
+    beginTracking();
+  }
+}}
                   >
                     Start
                   </button>
