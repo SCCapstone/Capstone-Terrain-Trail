@@ -375,6 +375,35 @@ body,
   pointer-events: none;
 }
 
+.visibility-switcher {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.vis-btn {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: var(--surface);
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.vis-btn.vis-active {
+  background: var(--brand, #73000a);
+  color: #fff;
+}
+
+.vis-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 @media (max-width: 900px) {
   .completed-trail-top {
     grid-template-columns: 1fr;

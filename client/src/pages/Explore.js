@@ -6,7 +6,7 @@ import React, {
   useRef,
   useMemo,
 } from "react";
-import { useNavigate } from "react-router-dom"; // Added for navigation
+import { useNavigate, useLocation } from "react-router-dom"; // Added for navigation
 import {
   GoogleMap,
   DirectionsRenderer,
@@ -258,6 +258,8 @@ export default function Explore() {
 
   const { darkMode } = useTheme();
   const [expandedReviews, setExpandedReviews] = useState({});
+  const location = useLocation();
+  const highlightRouteId = location.state?.highlightRouteId ?? null;
 
   const onMapLoad = useCallback((map) => {
     mapRefInternal.current = map;
@@ -279,6 +281,39 @@ export default function Explore() {
   useEffect(() => {
     loadPublicRoutes();
   }, [loadPublicRoutes]);
+
+    useEffect(() => {
+    const style = document.createElement("style");
+    style.id = "explore-highlight-pulse";
+    style.textContent = `
+      @keyframes highlight-pulse {
+        0%   { box-shadow: 0 0 0 0px rgba(11, 99, 214, 0.55); }
+        35%  { box-shadow: 0 0 0 8px rgba(11, 99, 214, 0.25); }
+        100% { box-shadow: 0 0 0 0px rgba(11, 99, 214, 0.0);  }
+      }
+    `;
+    if (!document.getElementById("explore-highlight-pulse")) {
+      document.head.appendChild(style);
+    }
+    return () => {
+      const existing = document.getElementById("explore-highlight-pulse");
+      if (existing) existing.remove();
+    };
+  }, []);
+
+  // When navigating here from CompletedTrail with a highlightRouteId,
+  // scroll to that card, pulse it, and load it onto the map.
+  useEffect(() => {
+    if (!highlightRouteId || loadingPublic) return;
+
+    // Scroll the card into view
+    const el = document.getElementById(`explore-route-${highlightRouteId}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    // Also load it onto the map automatically
+    const route = publicRoutes.find((r) => r.id === highlightRouteId);
+    if (route) handleViewOnMap(route);
+  }, [highlightRouteId, loadingPublic, publicRoutes]);
 
   const getSectionHeader = () => {
     const modeMap = {
@@ -648,15 +683,14 @@ export default function Explore() {
               return (
                 <div
                   key={r.id}
-                  className={`route-card ${
-                    selectedRouteId === r.id ? "previewing" : ""
-                  }`}
+                  id={`explore-route-${r.id}`}
+                  className={`route-card ${selectedRouteId === r.id ? "previewing" : ""}`}
                   style={{
-                    borderLeft:
-                      selectedRouteId === r.id ? "5px solid #0b63d6" : "none",
+                    borderLeft: selectedRouteId === r.id ? "5px solid #0b63d6" : "none",
                     display: "flex",
                     gap: 14,
                     alignItems: "stretch",
+                    animation: r.id ? "highlight-pulse 2s ease-out forwards" : undefined,
                   }}
                 >
                   <div

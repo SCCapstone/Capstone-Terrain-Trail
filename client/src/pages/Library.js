@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { GoogleMap, DirectionsRenderer, Marker, Polyline } from "@react-google-maps/api";
 import { useSnackbar } from "../components/Snackbar.jsx";
 import { useTheme  } from "../theme/ThemeContext.js";
+import { useNavigate, useLocation } from "react-router-dom";
 
 
 const HAZARD_EMOJI = {
@@ -310,6 +311,8 @@ export default function Library() {
   });
 
   const { darkMode } = useTheme();
+  const location = useLocation();
+  const highlightRouteId = location.state?.highlightRouteId ?? null;
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState("all");
@@ -360,6 +363,36 @@ export default function Library() {
   useEffect(() => {
     loadRoutes();
   }, [loadRoutes]);
+
+  useEffect(() => {
+    if (!highlightRouteId || loadingRoutes) return;
+    const el = document.getElementById(`lib-route-${highlightRouteId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightRouteId, loadingRoutes]);
+
+  // injects the highlight-pulse keyframe once into the document head.
+  // cleaned up automatically when the Library component unmounts.
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.id = "lib-highlight-pulse";
+    style.textContent = `
+      @keyframes highlight-pulse {
+        0%   { box-shadow: 0 0 0 0px rgba(11, 99, 214, 0.55); }
+        35%  { box-shadow: 0 0 0 8px rgba(11, 99, 214, 0.25); }
+        100% { box-shadow: 0 0 0 0px rgba(11, 99, 214, 0.0);  }
+      }
+    `;
+    // guard against StrictMode double-mount
+    if (!document.getElementById("lib-highlight-pulse")) {
+      document.head.appendChild(style);
+    }
+    return () => {
+      const existing = document.getElementById("lib-highlight-pulse");
+      if (existing) existing.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -1291,6 +1324,7 @@ async function performDeleteRoute(routeId) {
               return (
                 <div
                   key={route.id}
+                  id={`lib-route-${route.id}`}
                   style={{
                     padding: 10,
                     marginBottom: 10,
@@ -1301,6 +1335,10 @@ async function performDeleteRoute(routeId) {
                         ? "var(--surface-2)"
                         : "var(--surface)",
                     color: "var(--text)",
+                    animation:
+                      highlightRouteId === route.id
+                        ? "highlight-pulse 2s ease-out forwards"
+                        : undefined,
                   }}
                 >
                   {editingRouteId === route.id ? (
