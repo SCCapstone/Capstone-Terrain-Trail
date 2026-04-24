@@ -179,11 +179,25 @@ export default function SignUp() {
               <div className="auth-error">Passwords do not match</div>
             )}
 
-            <div className="auth-row" style={{ gap: 12, marginTop: 6 }}>
+            <div 
+              className="auth-row"
+              style={{
+                gap: 12,
+                marginTop: 6,
+                display: "flex",
+                alignItems: "stretch"
+              }}
+            >
               <button
                 className="auth-btn auth-btn--primary auth-grow"
                 type="submit"
                 disabled={!passwordsMatch || password.length < MIN_PASSWORD_LEN || loading}
+                style={{
+                  flex: 1,
+                  minHeight: 44,
+                  fontWeight: 700,
+                  fontSize: 16,
+                }}
               >
                 {loading ? "Signing up..." : "Sign Up"}
               </button>
@@ -193,6 +207,12 @@ export default function SignUp() {
                 type="button"
                 onClick={() => navigate("/login")}
                 disabled={loading}
+                style={{
+                  flex: 1,
+                  minHeight: 44,
+                  fontWeight: 700,
+                  fontSize: 16,
+                }}
               >
                 Log In
               </button>
