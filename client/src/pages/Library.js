@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { GoogleMap, DirectionsRenderer, Marker, Polyline } from "@react-google-maps/api";
 import { useSnackbar } from "../components/Snackbar.jsx";
+import { useTheme  } from "../theme/ThemeContext.js";
 
 
 const HAZARD_EMOJI = {
@@ -256,6 +257,27 @@ function PhotoCarousel({ photos, title, height = 200 }) {
   );
 }
 
+const DARK_MAP_STYLES = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
+  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
+  { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
+  { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
+];
+
 export default function Library() {
   const [isMobileView, setIsMobileView] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -287,6 +309,7 @@ export default function Library() {
     isPublic: false,
   });
 
+  const { darkMode } = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState("all");
@@ -777,6 +800,26 @@ async function performDeleteRoute(routeId) {
     maxHeight: isMobileView ? "none" : 600,
     overflowY: isMobileView ? "visible" : "auto",
     order: 2,
+    scrollbarColor: "var(--border) var(--surface)",
+    scrollbarWidth: "thin",
+  };
+
+  const normalButtonStyle = {
+    border: "1px solid var(--border)",
+    background: "var(--surface-2)",
+    color: "var(--text)",
+    borderRadius: 5,
+    padding: "4px 9px",
+    cursor: "pointer",
+  };
+
+  const dangerButtonStyle = {
+    border: "1px solid #ff6b6b",
+    color: "#ff6b6b",
+    background: "rgba(255,107,107,0.08)",
+    borderRadius: 5,
+    padding: "4px 9px",
+    cursor: "pointer",
   };
 
   const routeActionStyle = {
@@ -988,6 +1031,7 @@ async function performDeleteRoute(routeId) {
               fullscreenControl: false,
               streetViewControl: false,
               mapTypeControl: false,
+              styles: darkMode ? DARK_MAP_STYLES : [],
             }}
           >
 {loadedPath.length > 1 ? (
@@ -1267,13 +1311,27 @@ async function performDeleteRoute(routeId) {
                           value={editForm.title}
                           onChange={(e) => handleEditFieldChange("title", e.target.value)}
                           placeholder="Route title"
-                          style={{ padding: 6, fontSize: 13 }}
+                          style={{
+                            padding: 6,
+                            fontSize: 13,
+                            background: "var(--surface-2)",
+                            color: "var(--text)",
+                            border: "1px solid var(--border)",
+                            borderRadius: 4,
+                          }}
                         />
 
                         <select
                           value={editForm.type}
                           onChange={(e) => handleEditFieldChange("type", e.target.value)}
-                          style={{ padding: 6, fontSize: 13 }}
+                          style={{
+                            padding: 6,
+                            fontSize: 13,
+                            background: "var(--surface-2)",
+                            color: "var(--text)",
+                            border: "1px solid var(--border)",
+                            borderRadius: 4,
+                          }}
                         >
                           <option value="👣">👣 Walking</option>
                           <option value="🚲">🚲 Biking</option>
@@ -1288,14 +1346,28 @@ async function performDeleteRoute(routeId) {
                           value={editForm.origin}
                           onChange={(e) => handleEditFieldChange("origin", e.target.value)}
                           placeholder="Origin"
-                          style={{ padding: 6, fontSize: 13 }}
+                          style={{
+                            padding: 6,
+                            fontSize: 13,
+                            background: "var(--surface-2)",
+                            color: "var(--text)",
+                            border: "1px solid var(--border)",
+                            borderRadius: 4,
+                          }}
                         />
                         <input
                           type="text"
                           value={editForm.destination}
                           onChange={(e) => handleEditFieldChange("destination", e.target.value)}
                           placeholder="Destination"
-                          style={{ padding: 6, fontSize: 13 }}
+                          style={{
+                            padding: 6,
+                            fontSize: 13,
+                            background: "var(--surface-2)",
+                            color: "var(--text)",
+                            border: "1px solid var(--border)",
+                            borderRadius: 4,
+                          }}
                         />
                         <input
                           type="text"
@@ -1362,8 +1434,19 @@ async function performDeleteRoute(routeId) {
                       </label>
 
                       <div style={routeEditActionStyle}>
-                        <button onClick={() => saveEditedRoute(route.id)}>Save</button>
-                        <button onClick={cancelEditingRoute}>Cancel</button>
+                        <button
+                          onClick={() => saveEditedRoute(route.id)}
+                          style={normalButtonStyle}
+                          >
+                            Save
+                        </button>
+                        <button
+                          onClick={cancelEditingRoute}
+                          style={normalButtonStyle}
+                        >
+                          Cancel
+                        </button>
+                        
                       </div>
                     </>
                   ) : (
@@ -1415,23 +1498,21 @@ async function performDeleteRoute(routeId) {
                         <button
                           onClick={() => loadRoute(route)}
                           disabled={loadingRouteId === route.id}
+                          style={normalButtonStyle}
                         >
                           {loadingRouteId === route.id ? "Loading..." : "Load"}
                         </button>
                         <button
                           onClick={() => startEditingRoute(route)}
                           disabled={loadingRouteId === route.id}
+                          style={normalButtonStyle}
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => requestDeleteRoute(route.id)}
                           disabled={loadingRouteId === route.id}
-                          style={{
-                            border: "1px solid #c62828",
-                            color: "#c62828",
-                            background: "#fff",
-                          }}
+                          style={dangerButtonStyle}
                         >
                           Delete
                         </button>

@@ -307,6 +307,96 @@
   justify-content: flex-start;
 }
 
+html.dark .splash-page {
+  background: #090909;
+}
+
+html.dark .splash-logo {
+  background: #f4f4f4;
+  border-color: #161616;
+}
+
+html.dark .splash-card,
+html.dark .splash-info-card {
+  background: #121212;
+  border-color: #2b2b2b;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+html.dark .splash-tag,
+html.dark .splash-section-label {
+  background: rgba(115, 0, 10, 0.18);
+  color: #ffd7da;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+html.dark .splash-title,
+html.dark .splash-section-heading h3,
+html.dark .splash-step-card h4,
+html.dark .splash-team-card h4 {
+  color: #f5f5f5;
+}
+
+html.dark .splash-description,
+html.dark .splash-section-heading p,
+html.dark .splash-step-card p,
+html.dark .splash-repo-description {
+  color: #c7c7c7;
+}
+
+html.dark .splash-feature-pill {
+  background: #1a1a1a;
+  color: #f1d7d9;
+  border-color: #333333;
+}
+
+html.dark .splash-button-secondary {
+  background: #181818;
+  color: #f1d7d9;
+  border-color: #8c1d28;
+}
+
+html.dark .splash-button-secondary:hover {
+  background: #222222;
+}
+
+html.dark .splash-button-tertiary {
+  background: #1a1a1a;
+  color: #f5f5f5;
+  border-color: #353535;
+}
+
+html.dark .splash-button-tertiary:hover {
+  background: #232323;
+}
+
+html.dark .splash-image,
+html.dark .splash-step-image {
+  border-color: #333333;
+  background: #181818;
+}
+
+html.dark .splash-video-wrapper {
+  border-color: #333333;
+  background: #0f0f0f;
+}
+
+html.dark .splash-step-card,
+html.dark .splash-team-card {
+  background: #181818;
+  border-color: #303030;
+}
+
+html.dark .splash-team-link {
+  background: #202020;
+  color: #f1d7d9;
+  border-color: #383838;
+}
+
+html.dark .splash-team-link:hover {
+  background: #2a2a2a;
+}
+
 @media (max-width: 1100px) {
   .splash-card {
     grid-template-columns: 1fr;

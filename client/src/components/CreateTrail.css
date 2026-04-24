@@ -43,6 +43,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .use-location-btn {
@@ -52,6 +53,19 @@
 
 .use-location-btn:hover {
   background: var(--surface-2);
+}
+
+.location-warning {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #b00020;
+}
+
+html.dark .location-warning {
+  color: #ff8a8a;
+  background: rgba(255, 80, 80, 0.08);
+  padding: 6px 10px;
+  border-radius: 6px;
 }
 
 /* =============================
@@ -69,6 +83,12 @@
 .transport-toolbar button[aria-pressed="true"] {
   border: 2px solid var(--brand) !important;
   background: rgba(115, 0, 10, 0.1) !important;
+}
+
+html.dark .transport-toolbar button[aria-pressed="true"] {
+  background: rgba(115, 0, 10, 0.22) !important;
+  border-color: #8b1e28 !important;
+  box-shadow: 0 0 0 1px rgba(139, 30, 40, 0.2) inset;
 }
 
 /* =============================
@@ -101,6 +121,12 @@
   border-radius: 12px;
   padding: 12px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+html.dark .card {
+  background: #141414;
+  border-color: #2f2f2f;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
 }
 
 /* =============================
@@ -153,22 +179,17 @@
 ============================= */
 .map-controls {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 48px;     /* above Google watermark */
+  left: 12px;
+  bottom: 36px;
   display: flex;
-  flex-direction: row;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   z-index: 1000;
-  align-items: center;
-  justify-content: center;
-
-  /* removed background + blur */
+  align-items: flex-start;
   padding: 0;
   background: transparent;
   backdrop-filter: none;
 }
-
 
 /* hazard wrapper */
 .hazard-control {
@@ -224,6 +245,45 @@
   justify-content: center;
 }
 
+/* ===== DARK MODE MAP UI POLISH ===== */
+html.dark .map-container .map-btn {
+  background: rgba(50, 50, 50, 0.94) !important;
+  border: 1px solid #626262 !important;
+  color: #f5f5f5 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+}
+
+html.dark .map-container .map-btn:hover {
+  background: rgba(66, 66, 66, 0.98) !important;
+  border-color: #7a7a7a !important;
+}
+
+html.dark .map-container .map-btn:disabled {
+  color: #cfcfcf !important;
+  opacity: 0.65;
+}
+
+html.dark .map-container .floating-controls {
+  background: rgba(24, 24, 24, 0.92);
+  border: 1px solid #343434;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+html.dark .hazard-menu {
+  background: #202020;
+  border: 1px solid #3c3c3c;
+  color: #f1f1f1;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+html.dark .hazard-menu-item {
+  color: #f1f1f1;
+}
+
+html.dark .hazard-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 @media (max-width: 768px) {
   .create-trail-container {
     padding: 12px;
@@ -273,7 +333,6 @@
   }
 
   .origin-input-wrapper {
-    flex-wrap: wrap;
     width: 100%;
   }
 
@@ -288,17 +347,19 @@
     padding: 6px;
     gap: 6px;
     max-width: calc(100% - 20px);
+    z-index: 50;
   }
 
   .map-controls {
-    left: 50%;
+    left: 10px;
+    bottom: 36px;
     right: auto;
-    transform: translateX(-50%);
-    bottom: 12px;
-    flex-direction: row;
+    transform: none;
+    flex-direction: column;
     flex-wrap: nowrap;
-    align-items: center;
-    justify-content: center;
+    align-items: flex-start;
+    justify-content: flex-start;
+    z-index: 50;
   }
 
   .map-container .floating-controls .map-btn,
@@ -312,6 +373,7 @@
     min-width: 160px;
     bottom: calc(100% + 6px);
     max-width: min(220px, calc(100vw - 32px));
+    z-index: 51;
   }
 }
 
@@ -322,6 +384,7 @@
 
   .map-container .floating-controls {
     justify-content: flex-start;
+    z-index: 50;
   }
 
   .map-container .floating-controls .map-btn {
@@ -330,10 +393,11 @@
   }
 
   .map-controls {
-    left: 50%;
+    left: 10px;
+    bottom: 36px;
     right: auto;
-    transform: translateX(-50%);
-    bottom: 10px;
+    transform: none;
+    z-index: 50;
   }
 
   .map-controls .map-btn {
@@ -355,6 +419,7 @@
     left: 0;
     right: auto;
     width: min(220px, calc(100vw - 32px));
+    z-index: 51;
   }
 }
 
@@ -369,68 +434,4 @@
     flex-basis: auto;
     width: auto;
   }
-}
-
-.map-controls {
-  position: absolute;
-  left: 66px;
-  bottom: 23px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 1000;
-  align-items: flex-start;
-  padding: 0;
-  background: transparent;
-  backdrop-filter: none;
-}
-
-@media (max-width: 768px) {
-  .map-container .floating-controls {
-    z-index: 50;
-  }
-
-  .map-controls {
-    left: 10px;
-    bottom: 44px;
-    right: auto;
-    transform: none;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: flex-start;
-    justify-content: flex-start;
-    z-index: 50;
-  }
-
-  .hazard-menu {
-    z-index: 51;
-  }
-}
-
-@media (max-width: 640px) {
-  .map-container .floating-controls {
-    z-index: 50;
-  }
-
-  .map-controls {
-    left: 10px;
-    bottom: 44px;
-    right: auto;
-    transform: none;
-    z-index: 50;
-  }
-
-  .hazard-menu {
-    z-index: 51;
-  }
-}
-
-/* ===== FIX MAP BUTTON TEXT IN DARK MODE ===== */
-html.dark .map-container .map-btn {
-  color: #111 !important;
-}
-
-html.dark .map-container .map-btn:disabled {
-  color: #111 !important;
-  opacity: 0.6;
 }

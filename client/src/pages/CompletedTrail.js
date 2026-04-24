@@ -8,11 +8,32 @@ import {
   Polyline,
 } from "@react-google-maps/api";
 import "./CompletedTrail.css";
+import { useTheme } from "../theme/ThemeContext";
 
 const API_BASE = process.env.REACT_APP_API_BASE_URL || "http://localhost:4000";
 const MAP_CONTAINER = { width: "100%", height: "420px" };
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 const MAX_PHOTOS = 5;
+const DARK_MAP_STYLES = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
+  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
+  { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
+  { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
+];
 
 function authHeaders() {
   const token = localStorage.getItem("token");
@@ -405,6 +426,7 @@ export default function CompletedTrail() {
   const saveInProgressRef = useRef(false);
   const pendingAutosaveRef = useRef(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const { darkMode } = useTheme();
 
   useEffect(() => {
     return () => {
@@ -894,6 +916,7 @@ setIsOwner(ownerMatch);
                   draggable: false,
                   zoomControl: false,
                   clickableIcons: false,
+                  ...(darkMode ? { styles: DARK_MAP_STYLES } : {}),
                 }}
               >
                 {isRecordedRoute ? (
@@ -1080,6 +1103,7 @@ setIsOwner(ownerMatch);
                 draggable: canEdit,
                 zoomControl: canEdit,
                 clickableIcons: false,
+                ...(darkMode ? { styles: DARK_MAP_STYLES } : {}),
               }}
             >
               {isRecordedRoute ? (

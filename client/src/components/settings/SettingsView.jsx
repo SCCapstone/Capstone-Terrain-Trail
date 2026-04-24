@@ -71,7 +71,6 @@ export default function SettingsView({
         <h1 className="settings-title">SETTINGS</h1>
 
         <div className="settings-card">
-          <div className="settings-cardHeader">Settings</div>
 
           <div className="settings-tabs">
             <button

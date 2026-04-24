@@ -9,11 +9,32 @@ import {
 import { useNavigate } from "react-router-dom";
 import "../components/CreateTrail.css";
 import { useSnackbar } from "../components/Snackbar.jsx";
+import { useTheme } from "../theme/ThemeContext";
 
 const containerStyle = { width: "100%", height: "100%" };
 const DEFAULT_CENTER = { lat: 33.996112, lng: -81.027428 };
 const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
 
+const DARK_MAP_STYLES = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
+  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
+  { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
+  { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
+];
 function authHeaders() {
   const token = localStorage.getItem("token");
   return {
@@ -247,52 +268,8 @@ export default function CreateTrail() {
 
   const [isManualRecording, setIsManualRecording] = useState(false);
 
-  const isDarkMode = document.documentElement.classList.contains("dark");
-  const darkMapStyles = [
-    { elementType: "geometry", stylers: [{ color: "#1d1d1d" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#1d1d1d" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#e5e5e5" }] },
-    {
-      featureType: "administrative",
-      elementType: "geometry",
-      stylers: [{ color: "#3a3a3a" }],
-    },
-    {
-      featureType: "poi",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#bdbdbd" }],
-    },
-    {
-      featureType: "poi.park",
-      elementType: "geometry",
-      stylers: [{ color: "#202a20" }],
-    },
-    {
-      featureType: "road",
-      elementType: "geometry",
-      stylers: [{ color: "#2a2a2a" }],
-    },
-    {
-      featureType: "road",
-      elementType: "geometry.stroke",
-      stylers: [{ color: "#3a3a3a" }],
-    },
-    {
-      featureType: "road",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#dcdcdc" }],
-    },
-    {
-      featureType: "water",
-      elementType: "geometry",
-      stylers: [{ color: "#0f2a3a" }],
-    },
-    {
-      featureType: "water",
-      elementType: "labels.text.fill",
-      stylers: [{ color: "#bdbdbd" }],
-    },
-  ];
+  const { darkMode: isDarkMode } = useTheme();
+  const isTerrainMode = routeType !== "🚗";
 
   async function applyCurrentLocationToOrigin() {
     const { exactPoint, accuracy } = await getUserLocation();
@@ -968,7 +945,7 @@ export default function CreateTrail() {
             📍 My location
           </button>
           {locationMessage && (
-            <div style={{ marginTop: 6, fontSize: 14, color: "crimson" }}>
+            <div className="location-warning">
               {locationMessage}
             </div>
           )}
@@ -1062,7 +1039,7 @@ export default function CreateTrail() {
               onLoad={setMap}
               onClick={handleMapClick}
               onUnmount={() => setMap(null)}
-              options={isDarkMode ? { styles: darkMapStyles } : undefined}
+              options={isDarkMode ? { styles: DARK_MAP_STYLES } : undefined}
             >
               {displayedDirections && (
                 <DirectionsRenderer
@@ -1366,4 +1343,3 @@ export default function CreateTrail() {
     </div>
   );
 }
-
