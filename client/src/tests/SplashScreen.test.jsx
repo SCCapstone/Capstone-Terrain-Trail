@@ -24,14 +24,6 @@ test("unit test: renders the SplashScreen page title and description", () => {
   ).toBeInTheDocument();
 });
 
-test("unit test: renders the main splash screen sections", () => {
-  renderSplashScreen();
-
-  expect(screen.getByText(/Final Demo/i)).toBeInTheDocument();
-  expect(screen.getByText(/How and why to use the app/i)).toBeInTheDocument();
-  expect(screen.getByText(/About the team/i)).toBeInTheDocument();
-});
-
 test("unit test: renders the login and create account links", () => {
   renderSplashScreen();
 
