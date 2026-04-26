@@ -1,13 +1,17 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CreateTrail, { haversineDistanceMeters } from "../pages/CreateTrail";
 
 // ✅ Mock react-router
 const mockNavigate = jest.fn();
-jest.mock("react-router-dom", () => ({
-  useNavigate: () => mockNavigate,
-}));
+jest.mock(
+  "react-router-dom",
+  () => ({
+    useNavigate: () => mockNavigate,
+  }),
+  { virtual: true }
+);
 
 // ✅ Mock Snackbar (FIXES YOUR ERROR)
 jest.mock("../components/Snackbar.jsx", () => ({
@@ -154,8 +158,10 @@ describe("CreateTrail Tests", () => {
       const watchCallback =
         window.navigator.geolocation.watchPosition.mock.calls[0][0];
 
-      watchCallback({ coords: { latitude: 34.0, longitude: -81.0 } });
-      watchCallback({ coords: { latitude: 34.01, longitude: -81.01 } });
+      act(() => {
+        watchCallback({ coords: { latitude: 34.0, longitude: -81.0 } });
+        watchCallback({ coords: { latitude: 34.01, longitude: -81.01 } });
+      });
 
       await waitFor(() => {
         expect(screen.getByRole("button", { name: /^Stop$/i })).toBeInTheDocument();

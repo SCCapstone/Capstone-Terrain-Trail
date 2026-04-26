@@ -1,7 +1,6 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
 import CompletedTrail from "../pages/CompletedTrail";
 
 beforeAll(() => {
@@ -9,13 +8,23 @@ beforeAll(() => {
   document.queryCommandState = jest.fn(() => false);
 });
 
-// Mock react-router
 const mockNavigate = jest.fn();
-jest.mock("react-router-dom", () => ({
-  ...jest.requireActual("react-router-dom"),
-  useNavigate: () => mockNavigate,
-  useParams: () => ({ id: "123" }),
-}));
+jest.mock(
+  "react-router-dom",
+  () => ({
+    MemoryRouter: ({ children }) => <>{children}</>,
+    Link: ({ to, children, ...props }) => (
+      <a href={to} {...props}>
+        {children}
+      </a>
+    ),
+    useNavigate: () => mockNavigate,
+    useParams: () => ({ id: "123" }),
+  }),
+  { virtual: true }
+);
+
+import { MemoryRouter } from "react-router-dom";
 
 // Mock Snackbar
 jest.mock("../components/Snackbar.jsx", () => ({
@@ -117,6 +126,11 @@ describe("CompletedTrail Tests", () => {
   // Component Tests
   describe("Rendering", () => {
     test("shows loading initially", () => {
+      global.fetch.mockImplementationOnce(
+        () =>
+          new Promise(() => {})
+      );
+
       render(
         <MemoryRouter>
           <CompletedTrail />

@@ -1,10 +1,26 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
 import Explore from '../pages/Explore'; 
 import { ThemeProvider } from '../theme/ThemeContext';
 import { SnackbarProvider } from '../components/Snackbar';
 import '@testing-library/jest-dom';
+
+jest.mock(
+  'react-router-dom',
+  () => ({
+    MemoryRouter: ({ children }) => <>{children}</>,
+    Link: ({ to, children, ...props }) => (
+      <a href={to} {...props}>
+        {children}
+      </a>
+    ),
+    useNavigate: () => jest.fn(),
+    useLocation: () => ({ state: null }),
+  }),
+  { virtual: true }
+);
+
+import { MemoryRouter } from 'react-router-dom';
 
 // 1. Mock the Google Maps API Globals
 global.google = {

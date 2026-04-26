@@ -4,8 +4,22 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import { MemoryRouter } from "react-router-dom";
 import SplashScreen from "../pages/SplashScreen";
+
+jest.mock(
+  "react-router-dom",
+  () => ({
+    MemoryRouter: ({ children }) => <>{children}</>,
+    Link: ({ to, children, ...props }) => (
+      <a href={to} {...props}>
+        {children}
+      </a>
+    ),
+  }),
+  { virtual: true }
+);
+
+import { MemoryRouter } from "react-router-dom";
 
 function renderSplashScreen() {
   render(

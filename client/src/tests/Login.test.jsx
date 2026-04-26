@@ -9,9 +9,13 @@ import Login from "../pages/Login";
 // Mock navigation so the test does not need the full router setup.
 const mockNavigate = jest.fn();
 
-jest.mock("react-router-dom", () => ({
-  useNavigate: () => mockNavigate,
-}));
+jest.mock(
+  "react-router-dom",
+  () => ({
+    useNavigate: () => mockNavigate,
+  }),
+  { virtual: true }
+);
 
 beforeEach(() => {
   mockNavigate.mockClear();
