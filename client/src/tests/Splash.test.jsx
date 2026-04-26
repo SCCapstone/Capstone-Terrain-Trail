@@ -4,7 +4,7 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import Splash from "../pages/Splash";
+import Splash from "../pages/SplashScreen";
 
 // Mock navigation so the test does not need the full router setup.
 const mockNavigate = jest.fn();
