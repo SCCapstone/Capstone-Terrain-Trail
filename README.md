@@ -90,7 +90,7 @@ This project uses Jest, Cypress, and React Testing Library for automated testing
 
 All automated tests are located in:
 
-	client/src/pages/
+	client/src/tests/
 
 
 Tests are identified using the filename patterns:
