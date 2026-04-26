@@ -128,7 +128,7 @@ function photoSnapshot(photo) {
  * Stable JSON snapshot of all review fields.
  * Compared against lastSavedSnapshotRef to decide whether autosave is needed.
  */
-function buildReviewSnapshot({ stars, terrain, comment, isPublic, hazards, photos }) {
+export function buildReviewSnapshot({ stars, terrain, comment, isPublic, hazards, photos }) {
   return JSON.stringify({
     stars: Number(stars) || 0,
     terrain: Number(terrain) || 0,
