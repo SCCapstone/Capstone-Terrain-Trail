@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import Explore from './Explore'; 
+import Explore from '../pages/Explore'; 
 import { ThemeProvider } from '../theme/ThemeContext';
 import { SnackbarProvider } from '../components/Snackbar';
 import '@testing-library/jest-dom';
