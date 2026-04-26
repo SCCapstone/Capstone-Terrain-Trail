@@ -51,7 +51,7 @@ function travelModeFromType(type) {
   return window.google.maps.TravelMode.WALKING;
 }
 
-function haversineDistanceMeters(a, b) {
+export function haversineDistanceMeters(a, b) {
   const toRad = (v) => (v * Math.PI) / 180;
   const R = 6371000;
   const dLat = toRad(b.lat - a.lat);
