@@ -30,7 +30,7 @@ const teamMembers = [
   },
   {
     name: "Donovan Williams",
-    linkedin: "www.linkedin.com/in/donovan-williams-72042b428",
+    linkedin: "https://www.linkedin.com/in/donovan-williams-72042b428",
     personalSite: "",
   },
 ];
